@@ -32,7 +32,7 @@
     { "name": "Computerphile", "youtube": "https://www.youtube.com/@Computerphile", "tags": ["STEM"] },
     { "name": "TheGrayCuber", "youtube": "https://www.youtube.com/@TheGrayCuber", "tags": ["Math"] },
     { "name": "NanoRooms", "youtube": "https://www.youtube.com/@Nanorooms", "tags": ["STEM"] },
-    { "name": "Premature Abstraction", "youtube": "https://www.youtube.com/@PrematureAbstraction", "tags": ["Coding"] },
+    { "name": "Premature Abstraction", "youtube": "https://www.youtube.com/@PrematureAbstraction", "tags": ["Computer Science"] },
     { "name": "CodeCraftedPhysics", "youtube": "https://www.youtube.com/@CodeCraftedPhysics", "tags": ["STEM"] },
     { "name": "Julia Evans", "rss": "https://jvns.ca/atom.xml", "tags": ["Computer Science"] },
     { "name": "Bartosz Ciechanowski", "rss": "https://ciechanow.ski/atom.xml", "tags": ["STEM"] },
@@ -87,6 +87,7 @@
     { "name": "Chips and Cheese", "substack": "https://chipsandcheese.com", "tags": ["Computer Science"] },
     { "name": "Infinitely More", "description": "Joel David Hamkins", "substack": "https://joeldavidhamkins.substack.com", "tags": ["Math"] },
     { "name": "Personal Canon", "description": "Celine Nguyen", "substack": "https://www.personalcanon.com", "tags": ["Design"] },
-    { "name": "Contraptions", "description": "Venkatesh Rao", "substack": "https://contraptions.venkateshrao.com", "tags": ["STEM"] }
+    { "name": "Contraptions", "description": "Venkatesh Rao", "substack": "https://contraptions.venkateshrao.com", "tags": ["STEM"] },
+    { "name": "LiveOverflow", "youtube": "https://www.youtube.com/@LiveOverflow", "tags": ["Computer Science"] }
   ]
 }
