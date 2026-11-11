@@ -4,21 +4,17 @@ import type { ProviderRegistry } from "./providers";
 
 export async function buildFeed(collections: Collection[], providers: ProviderRegistry, now: Date): Promise<Feed> {
   const errors: FeedError[] = [];
-  const jobs = collections.flatMap((collection) =>
-    collection.entries.flatMap((entry) =>
-      sourcesOf(entry).map(async ({ kind, url, provider }): Promise<FeedItem[]> => {
-        try {
-          const raw = await providers[provider](url);
-          return raw
-            .filter((item) => !isMuted(item, collection.mute))
-            .map((item) => ({ ...item, id: `${kind}:${item.id}`, kind, author: entry.name, tags: entry.tags }));
-        } catch (error) {
-          errors.push({ entry: entry.name, kind, message: error instanceof Error ? error.message : String(error) });
-          return [];
-        }
-      }),
-    ),
-  );
+  const jobs = mergeSources(collections).map(async ({ kind, url, provider, author, tags, mute }): Promise<FeedItem[]> => {
+    try {
+      const raw = await providers[provider](url);
+      return raw
+        .filter((item) => !isMuted(item, mute))
+        .map((item) => ({ ...item, id: `${kind}:${item.id}`, kind, author, tags }));
+    } catch (error) {
+      errors.push({ entry: author, kind, message: error instanceof Error ? error.message : String(error) });
+      return [];
+    }
+  });
 
   const items = dedupe((await Promise.all(jobs)).flat()).sort(byNewest);
   const present = new Set(items.map((item) => item.kind));
@@ -29,6 +25,28 @@ export async function buildFeed(collections: Collection[], providers: ProviderRe
     kinds: SOURCE_KINDS.filter((kind) => present.has(kind)),
     errors,
   };
+}
+
+type Source = { kind: SourceKind; url: string; provider: keyof ProviderRegistry; author: string; tags: string[]; mute: string[] };
+
+// Collections may list the same source. Fetch it once, under the first entry's name,
+// with every listing's tags and every listing collection's mute words.
+function mergeSources(collections: Collection[]): Source[] {
+  const merged = new Map<string, Source>();
+  for (const collection of collections) {
+    for (const entry of collection.entries) {
+      for (const { kind, url, provider } of sourcesOf(entry)) {
+        const key = `${provider}|${kind}|${sameUrl(url)}`;
+        const existing = merged.get(key);
+        if (!existing) merged.set(key, { kind, url, provider, author: entry.name, tags: [...entry.tags], mute: [...collection.mute] });
+        else {
+          existing.tags = [...new Set([...existing.tags, ...entry.tags])];
+          existing.mute = [...new Set([...existing.mute, ...collection.mute])];
+        }
+      }
+    }
+  }
+  return [...merged.values()];
 }
 
 // An entry's archive page lists more of the same blog, so its posts join that blog's kind.

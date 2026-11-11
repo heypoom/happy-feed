@@ -95,3 +95,19 @@ test("posts that differ only by query string stay separate", async () => {
   const feed = await buildFeed([collection], registry(videos), now);
   expect(feed.items.map((item) => item.title)).toEqual(["Two", "One"]);
 });
+
+test("fetches a source listed by two collections once, merging tags and mute words", async () => {
+  let calls = 0;
+  const providers = {
+    ...registry([]),
+    rss: async () => {
+      calls++;
+      return [raw("a", "Local-first software", 1), raw("b", "Election night", 2), raw("c", "Crypto again", 3)];
+    },
+  };
+  const mine: Collection = { name: "Mine", mute: ["election"], entries: [{ name: "Ink", tags: ["HCI"], sources: { rss: "https://example.com/feed" } }] };
+  const friend: Collection = { name: "Friend", mute: ["crypto"], entries: [{ name: "Ink", tags: ["Design"], sources: { rss: "https://www.example.com/feed/" } }] };
+  const feed = await buildFeed([mine, friend], providers, now);
+  expect(calls).toBe(1);
+  expect(feed.items).toEqual([expect.objectContaining({ title: "Local-first software", author: "Ink", tags: ["HCI", "Design"] })]);
+});

@@ -23,7 +23,7 @@ bun run og      # re-renders public/og.png from scripts/og/og.html
 
 ## Collections
 
-Every `collection/*.json` file is loaded. Unknown keys and bad URLs fail the build with the file and entry named.
+Every `collection/*.json` file is loaded and merged. A source listed in several collections is fetched once, under the first entry's name (files load alphabetically), with every listing's tags and every listing collection's `mute` words. Unknown keys and bad URLs fail the build with the file and entry named.
 
 ```jsonc
 {
