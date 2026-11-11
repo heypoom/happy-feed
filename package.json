@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "fetch": "bun scripts/build-feed.ts",
+    "refresh": "bun scripts/refresh.ts",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
