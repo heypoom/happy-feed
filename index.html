@@ -70,16 +70,39 @@
       </div>
     </header>
     <nav class="controls" aria-label="Filters" hidden>
-      <div class="tabs" role="group" aria-label="Show"></div>
-      <div class="chips" role="group" aria-label="Tags and sources"></div>
-      <section class="people-section" aria-labelledby="people-heading">
-        <header class="people-head">
-          <h2 id="people-heading">People <span class="count"></span></h2>
-          <input class="people-find" type="search" placeholder="Find a person" aria-label="Find a person" autocomplete="off" spellcheck="false" />
+      <div class="bar">
+        <div class="tabs" role="group" aria-label="Show"></div>
+        <button class="filters-button" type="button" aria-haspopup="dialog" aria-label="Filters">
+          <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#i-sliders" /></svg>
+          <span class="label">Filters</span>
+          <span class="badge" hidden></span>
+        </button>
+      </div>
+      <div class="active-strip" hidden></div>
+      <!-- On phones this is a bottom sheet; from 1024px it is unwrapped into the rail (display: contents). -->
+      <dialog class="filter-sheet" aria-labelledby="filter-sheet-title">
+        <header class="sheet-head">
+          <span class="grab" aria-hidden="true"></span>
+          <h2 id="filter-sheet-title">Filters</h2>
+          <button class="sheet-close" type="button" aria-label="Close filters">
+            <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+          </button>
         </header>
-        <div class="chips people" role="group" aria-labelledby="people-heading"></div>
-        <p class="people-none" hidden>No one by that name.</p>
-      </section>
+        <div class="sheet-tabs" role="group" aria-label="Show"></div>
+        <div class="chips" role="group" aria-label="Tags and sources"></div>
+        <section class="people-section" aria-labelledby="people-heading">
+          <header class="people-head">
+            <h2 id="people-heading">People <span class="count"></span></h2>
+            <input class="people-find" type="search" placeholder="Find a person" aria-label="Find a person" autocomplete="off" spellcheck="false" />
+          </header>
+          <div class="chips people" role="group" aria-labelledby="people-heading"></div>
+          <p class="people-none" hidden>No one by that name.</p>
+        </section>
+        <footer class="sheet-foot">
+          <button class="button quiet sheet-clear" type="button">Clear all</button>
+          <button class="button sheet-done" type="button">Show posts</button>
+        </footer>
+      </dialog>
     </nav>
     </aside>
     <main class="column">
@@ -123,6 +146,7 @@
         <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></symbol>
         <symbol id="i-at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8" /></symbol>
         <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7ZM14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8" /></symbol>
+        <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2.5" /><circle cx="9" cy="17" r="2.5" /></symbol>
         <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
         <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9" /></symbol>
       </defs>

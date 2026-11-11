@@ -330,20 +330,45 @@ button {
 
 /* Controls */
 
+/* Below the rail breakpoint the rail is only a wrapper, so the controls can stick to the page, not to it. */
+.rail {
+  display: contents;
+}
+
 .controls {
   position: sticky;
   top: 0;
   z-index: 10;
-  padding-top: 10px;
+  padding-top: 8px;
   padding-bottom: 10px;
   background: var(--ground);
-  transition: background-color 0.4s var(--ease-out);
+  transition: background-color 0.4s var(--ease-out), transform 0.35s var(--ease-out);
+}
+
+/* A soft fade under the bar, so cards slide beneath it rather than meeting a hard edge. */
+.controls::after {
+  content: "";
+  position: absolute;
+  inset: 100% 0 auto;
+  height: 14px;
+  background: linear-gradient(var(--ground), transparent);
+  pointer-events: none;
+}
+
+.controls.tucked {
+  transform: translateY(calc(-100% - 14px));
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .tabs {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  display: flex;
+  flex: 1;
+  min-width: 0;
   gap: 4px;
   padding: 4px;
   border-radius: 999px;
@@ -372,11 +397,11 @@ button {
   height: 18px;
 }
 
+/* Full ink rather than opacity, so the count clears 4.5:1 on the violet pill; weight sets it apart. */
 .tab .count {
   font-weight: 500;
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
-  opacity: 0.75;
 }
 
 .tab:hover {
@@ -398,17 +423,149 @@ button {
   color: var(--accent-ink);
 }
 
-.chips {
-  display: flex;
+/* The bar's tabs are icons; only the selected one grows to show its label and count. The label and
+   count of the others live in the tooltip and the accessible name ("Watch, 665 posts"). */
+.tabs .tab {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 40px;
+  padding: 0;
+}
+
+.tabs .tab .tab-label,
+.tabs .tab .count {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tabs .tab[aria-pressed="true"] {
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 0 14px 0 12px;
+}
+
+.tabs .tab[aria-pressed="true"] .tab-label,
+.tabs .tab[aria-pressed="true"] .count {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+}
+
+.filters-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin: 10px calc(-1 * var(--gutter)) 0;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 650;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow);
+  transition: background-color 0.25s var(--ease-out);
+}
+
+.filters-button .label {
+  display: none;
+}
+
+.filters-button .badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.filters-button[aria-expanded="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+@media (min-width: 420px) {
+  .filters-button {
+    width: auto;
+    padding: 0 18px 0 14px;
+  }
+
+  .filters-button .label {
+    display: inline;
+  }
+}
+
+/* Phones: what is narrowing the feed stays in view under the bar, each token a tap to remove. */
+.active-strip {
+  display: flex;
+  gap: 6px;
+  margin: 8px calc(-1 * var(--gutter)) 0;
   padding: 2px var(--gutter);
   overflow-x: auto;
   scrollbar-width: none;
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
 
-.chips::-webkit-scrollbar {
+.active-strip::-webkit-scrollbar {
   display: none;
+}
+
+.active-strip[hidden] {
+  display: none;
+}
+
+.active-strip .chip {
+  min-height: 32px;
+  gap: 6px;
+  padding: 0 10px 0 8px;
+  font-size: 0.85rem;
+}
+
+.token {
+  background: var(--wash, var(--surface));
+  border-color: var(--solid, var(--line));
+  color: var(--ink, var(--text));
+}
+
+.token .icon {
+  width: 14px;
+  height: 14px;
+  color: inherit;
+}
+
+.token .monogram {
+  width: 22px;
+  height: 22px;
+  margin-left: -4px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+}
+
+/* Chips wrap: on phones they live in the filter sheet, on desktop in the rail. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 0;
 }
 
 .chip {
@@ -455,16 +612,23 @@ button {
   color: inherit;
 }
 
-/* Pinned to the start of the scrolling chip row, so it stays reachable however far the row scrolls. */
 .clear-chip {
-  position: sticky;
-  left: 0;
-  z-index: 1;
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: -24px 0 0 var(--ground), 10px 0 12px -6px var(--ground);
   animation: chip-in 0.3s var(--ease-out);
+}
+
+/* On phones the sheet footer clears; the strip's own Clear is pinned to its start as it scrolls. */
+.chips .clear-chip {
+  display: none;
+}
+
+.active-strip .clear-chip {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  box-shadow: -24px 0 0 var(--ground), 10px 0 12px -6px var(--ground);
 }
 
 .clear-chip .icon {
@@ -501,12 +665,62 @@ button {
   color: var(--ground);
 }
 
+/* People: a heading with a search box over a findable two-column list. */
+.people-section {
+  margin-top: 24px;
+}
+
+.people-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.people-head h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.people-head .count {
+  color: var(--muted);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.people-find {
+  width: min(190px, 55%);
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.people-find::placeholder {
+  color: var(--muted);
+}
+
 .people {
-  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
 }
 
 .people .chip {
-  padding-left: 5px;
+  min-width: 0;
+  min-height: 40px;
+  gap: 8px;
+  padding: 0 10px 0 6px;
 }
 
 .people .monogram {
@@ -514,6 +728,179 @@ button {
   height: 26px;
   border-radius: 999px;
   font-size: 0.78rem;
+}
+
+.people-none {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.people-none[hidden] {
+  display: none;
+}
+
+/* Filter sheet (phones): a bottom sheet in the post viewer's shape, with the rail's contents. */
+html:has(.filter-sheet[open]) {
+  overflow: hidden;
+}
+
+.filter-sheet {
+  width: 100%;
+  max-width: 100%;
+  height: 92dvh;
+  max-height: 92dvh;
+  margin: auto 0 0;
+  padding: 0 var(--gutter);
+  border: 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 -12px 40px -16px rgb(20 18 42 / 0.45);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transition: transform 0.35s var(--ease-out);
+}
+
+.filter-sheet[open] {
+  display: flex;
+  flex-direction: column;
+  animation: sheet-up 0.45s var(--ease-out);
+}
+
+.filter-sheet > * {
+  flex: none;
+}
+
+.filter-sheet::backdrop {
+  background: rgb(20 18 42 / 0.5);
+  cursor: pointer;
+}
+
+.filter-sheet[open]::backdrop {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Inside the sheet the chips sit on the surface, so they take the ground to stay distinct. */
+.filter-sheet .chip:not([aria-pressed="true"]),
+.filter-sheet .people-find {
+  background: var(--ground);
+}
+
+.sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 18px var(--gutter) 10px;
+  background: var(--surface);
+  touch-action: none;
+  cursor: grab;
+}
+
+.sheet-head .grab {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 40px;
+  height: 5px;
+  margin-left: -20px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.sheet-head h2 {
+  grid-column: 2;
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.sheet-close {
+  grid-column: 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* In the sheet every format shows its label and count, two to a row so four-digit counts never clip. */
+.sheet-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.sheet-tabs .tab {
+  justify-content: flex-start;
+  min-height: 48px;
+  padding: 0 14px;
+  background: var(--ground);
+  color: var(--text);
+}
+
+.sheet-tabs .tab .count {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.sheet-tabs .tab[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.sheet-tabs .tab[aria-pressed="true"] .count {
+  color: inherit;
+}
+
+.sheet-tabs .tab:disabled {
+  color: color-mix(in srgb, var(--muted) 72%, var(--ground));
+}
+
+.sheet-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 10px;
+  margin: auto calc(-1 * var(--gutter)) 0;
+  padding: 14px var(--gutter) max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, var(--surface) 14px);
+}
+
+.sheet-foot .button {
+  min-height: 48px;
+  font-size: 1rem;
+}
+
+.sheet-foot .sheet-done {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-foot .sheet-clear {
+  background: var(--ground);
+  box-shadow: none;
+}
+
+.sheet-foot .sheet-clear:disabled {
+  color: color-mix(in srgb, var(--muted) 72%, var(--ground));
+  cursor: default;
+}
+
+.filter-sheet .people-section {
+  padding-bottom: 12px;
 }
 
 .chip[hidden] {
@@ -556,15 +943,10 @@ button {
   cursor: default;
 }
 
-.people-head,
-.people-none {
-  display: none;
-}
-
 .chip-rule {
-  flex: none;
-  width: 1.5px;
-  margin: 6px 2px;
+  flex-basis: 100%;
+  height: 1.5px;
+  margin: 6px 0;
   background: var(--line);
 }
 
@@ -1465,15 +1847,16 @@ html:has(.viewer[open]) {
   height: 1px;
 }
 
-@media (max-width: 479px) {
-  .tab {
-    gap: 4px;
-    padding: 0 6px;
-    font-size: 0.875rem;
+/* A narrow phone keeps the wordmark on one line. */
+@media (max-width: 399px) {
+  .brand {
+    gap: 8px;
+    font-size: 1.3rem;
   }
 
-  .tab .icon {
-    display: none;
+  .sprout {
+    width: 34px;
+    height: 34px;
   }
 }
 
@@ -1604,42 +1987,34 @@ html:has(.viewer[open]) {
     position: static;
     padding: 0;
     background: none;
+    transform: none;
   }
 
-  /* Icons only in the rail: the label and count move to the tooltip and the accessible name. */
-  .tab {
-    position: relative;
-    min-height: 34px;
-    padding: 0;
+  .controls::after,
+  .filters-button,
+  .active-strip,
+  .sheet-head,
+  .sheet-tabs,
+  .sheet-foot {
+    display: none;
   }
 
-  .tab .icon {
-    width: 18px;
-    height: 18px;
+  .rail {
+    display: block;
   }
 
-  .tab .tab-label,
-  .tab .count {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+  /* The sheet's contents are the rail itself here: unwrap the dialog so they flow in place. */
+  .filter-sheet {
+    display: contents;
   }
 
-  .chips {
-    flex-wrap: wrap;
-    margin: 20px 0 0;
-    padding: 0;
-    overflow: visible;
+  .filter-sheet .chip:not([aria-pressed="true"]),
+  .filter-sheet .people-find {
+    background: var(--surface);
   }
 
-  .chip-rule {
-    flex-basis: 100%;
-    height: 1.5px;
-    width: auto;
-    margin: 6px 0;
+  .bar {
+    display: block;
   }
 
   .list {
@@ -1675,34 +2050,19 @@ html:has(.viewer[open]) {
   }
 }
 
-/* Desktop rail: expanded tab label, people as a findable two-column list. */
+/* Desktop rail: a tighter tab row, the clear chip in the chip list, a denser people list. */
 @media (min-width: 1024px) {
-  .tabs {
-    display: flex;
+  .tabs .tab {
+    min-height: 34px;
   }
 
-  .tab {
-    flex: 1 1 0;
-  }
-
-  .tab[aria-pressed="true"] {
+  .tabs .tab[aria-pressed="true"] {
     flex: 2.6 1 0;
-    gap: 6px;
     padding: 0 10px;
   }
 
-  .tab[aria-pressed="true"] .tab-label,
-  .tab[aria-pressed="true"] .count {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-  }
-
-  .clear-chip {
-    position: static;
-    box-shadow: none;
+  .chips .clear-chip {
+    display: inline-flex;
   }
 
   /* In the grid a long post would set its whole row's height; the viewer has the full text. */
@@ -1717,54 +2077,18 @@ html:has(.viewer[open]) {
     margin-top: 20px;
   }
 
-  .people-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-  }
-
   .people-head h2 {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    margin: 0;
     font-size: 0.875rem;
-    font-weight: 700;
-  }
-
-  .people-head .count {
-    color: var(--muted);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
   }
 
   .people-find {
     width: 150px;
     min-height: 32px;
     padding: 0 12px;
-    border: 1.5px solid var(--line);
-    border-radius: 999px;
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
     font-size: 0.875rem;
   }
 
-  .people-find::placeholder {
-    color: var(--muted);
-  }
-
-  .people {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
-    margin: 0;
-  }
-
   .people .chip {
-    min-width: 0;
     min-height: 32px;
     gap: 6px;
     padding: 0 10px 0 4px;
@@ -1775,17 +2099,6 @@ html:has(.viewer[open]) {
     width: 22px;
     height: 22px;
     font-size: 0.7rem;
-  }
-
-  .people-none {
-    display: block;
-    margin: 8px 0 0;
-    color: var(--muted);
-    font-size: 0.875rem;
-  }
-
-  .people-none[hidden] {
-    display: none;
   }
 }
 

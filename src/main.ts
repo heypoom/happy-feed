@@ -32,6 +32,16 @@ const list = document.querySelector<HTMLElement>(".list")!;
 const sentinel = document.querySelector<HTMLElement>(".sentinel")!;
 const controls = document.querySelector<HTMLElement>(".controls")!;
 const tabs = controls.querySelector<HTMLElement>(".tabs")!;
+const sheetTabs = controls.querySelector<HTMLElement>(".sheet-tabs")!;
+const filtersButton = controls.querySelector<HTMLButtonElement>(".filters-button")!;
+const activeStrip = controls.querySelector<HTMLElement>(".active-strip")!;
+const sheet = controls.querySelector<HTMLDialogElement>(".filter-sheet")!;
+const sheetClear = sheet.querySelector<HTMLButtonElement>(".sheet-clear")!;
+const sheetDone = sheet.querySelector<HTMLButtonElement>(".sheet-done")!;
+// Below the rail breakpoint the filters live in a bottom sheet; at and above it they are the rail.
+const masthead = document.querySelector<HTMLElement>(".masthead")!;
+const railLayout = matchMedia("(min-width: 1024px)");
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const chips = controls.querySelector<HTMLElement>(".chips")!;
 const people = controls.querySelector<HTMLElement>(".people")!;
 const peopleCount = controls.querySelector<HTMLElement>(".people-head .count")!;
@@ -121,7 +131,8 @@ viewer.addEventListener("pointerup", (event) => {
   pressOnBackdrop = false;
 });
 window.addEventListener("keydown", (event: KeyboardEvent) => {
-  if (event.key !== "Escape" || viewer.open || !feed) return;
+  // With the sheet open, Esc belongs to the sheet (it closes it) rather than clearing filters.
+  if (event.key !== "Escape" || viewer.open || sheet.open || !feed) return;
   const filters = readFilters();
   if (activeFilterCount(filters) > 0) clearFilters(filters);
 });
@@ -131,6 +142,7 @@ peopleFind.addEventListener("keydown", (event) => {
   // Esc in the box clears the search first; a second Esc falls through to clearing filters.
   if (event.key === "Escape" && peopleFind.value) {
     event.stopPropagation();
+    event.preventDefault();
     peopleFind.value = "";
     applyPeopleFind();
   }
@@ -138,6 +150,33 @@ peopleFind.addEventListener("keydown", (event) => {
     people.querySelector<HTMLButtonElement>('.chip:not([hidden]):not([aria-pressed="true"])')?.click();
   }
 });
+
+filtersButton.addEventListener("click", openSheet);
+sheet.querySelector(".sheet-close")!.addEventListener("click", () => sheet.close());
+sheetDone.addEventListener("click", () => sheet.close());
+sheetClear.addEventListener("click", () => clearFilters(readFilters()));
+sheet.addEventListener("close", () => {
+  filtersButton.setAttribute("aria-expanded", "false");
+  // A tap does not always focus the button on iOS, so focus could otherwise be left inside the closed sheet.
+  if (sheet.contains(document.activeElement)) filtersButton.focus({ preventScroll: true });
+  peopleFind.value = "";
+  applyPeopleFind();
+});
+// Same press-starts-and-ends-on-the-backdrop rule as the viewer.
+let sheetPressOnBackdrop = false;
+sheet.addEventListener("pointerdown", (event) => {
+  sheetPressOnBackdrop = event.target === sheet;
+});
+sheet.addEventListener("pointerup", (event) => {
+  if (sheetPressOnBackdrop && event.target === sheet) sheet.close();
+  sheetPressOnBackdrop = false;
+});
+dragToClose(sheet.querySelector<HTMLElement>(".sheet-head")!);
+railLayout.addEventListener("change", () => {
+  if (railLayout.matches && sheet.open) sheet.close();
+  controls.classList.remove("tucked");
+});
+tuckOnScroll();
 
 void start();
 
@@ -337,12 +376,15 @@ function appendPage(): void {
 
 function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
   controls.hidden = false;
+  // Every render rebuilds the controls, so keep keyboard focus on the same control across it.
+  const focused = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("[data-key]");
+  const focusKey = focused && controls.contains(focused) ? focused.dataset.key : undefined;
   const formats = [...new Set(feed.items.map((item) => FORMAT_OF[item.kind]))];
   const count = (format: Format | "") =>
     chipMatches.filter((item) => !format || FORMAT_OF[item.kind] === format).length;
 
-  tabs.replaceChildren(
-    ...(["", ...formats] as const).map((format) => {
+  const tabButtons = (where: string) =>
+    (["", ...formats] as const).map((format) => {
       const { label, icon: id } = format ? FORMATS[format] : { label: "All", icon: "i-all" };
       const n = count(format);
       const tab = h("button", { type: "button", className: "tab", title: `${label} (${n})`, ariaLabel: `${label}, ${n} post${n === 1 ? "" : "s"}` }, [
@@ -350,16 +392,29 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
         h("span", { className: "tab-label" }, [label]),
         h("span", { className: "count" }, [String(n)]),
       ]);
+      tab.dataset.key = `${where}:show:${format}`;
       tab.setAttribute("aria-pressed", String(filters.show === format));
       tab.disabled = filters.show !== format && n === 0;
       tab.addEventListener("click", () => writeFilters({ ...filters, show: format }));
       return tab;
-    }),
-  );
+    });
+  tabs.replaceChildren(...tabButtons("bar"));
+  sheetTabs.replaceChildren(...tabButtons("sheet"));
+
+  const narrowing = filters.tags.size + filters.kind.size + filters.people.size;
+  const badge = filtersButton.querySelector<HTMLElement>(".badge")!;
+  badge.textContent = String(narrowing);
+  badge.hidden = narrowing === 0;
+  filtersButton.setAttribute("aria-label", narrowing > 0 ? `Filters, ${narrowing} on` : "Filters");
+  filtersButton.setAttribute("aria-expanded", String(sheet.open));
+  const shown = count(filters.show);
+  sheetDone.textContent = shown === 0 ? "Nothing matches" : `Show ${shown.toLocaleString()} post${shown === 1 ? "" : "s"}`;
+  sheetClear.disabled = activeFilterCount(filters) === 0;
 
   const chip = (group: ChipGroup, value: string, lead: Node, label: string, hue?: Hue) => {
     const active = filters[group].has(value);
     const el = h("button", { type: "button", className: "chip", title: label }, [lead, h("span", { className: "chip-label" }, [label])]);
+    el.dataset.key = `${group}:${value}`;
     if (hue) el.dataset.hue = hue;
     el.setAttribute("aria-pressed", String(active));
     el.addEventListener("click", () => {
@@ -378,6 +433,7 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
     h("span", { className: "count" }, [String(active)]),
   ]);
   clear.addEventListener("click", () => clearFilters(filters));
+  renderActiveStrip(filters, active);
 
   chips.replaceChildren(
     ...(active > 0 ? [clear] : []),
@@ -412,6 +468,109 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
     }),
   );
   applyPeopleFind();
+  if (focusKey) controls.querySelector<HTMLElement>(`[data-key="${CSS.escape(focusKey)}"]`)?.focus();
+}
+
+// Phones only: what is narrowing the feed, kept in view under the bar, each one a tap to remove.
+function renderActiveStrip(filters: Filters, active: number): void {
+  const tokens: HTMLButtonElement[] = [];
+  const token = (group: ChipGroup, value: string, label: string, lead: Node, hue?: Hue) => {
+    const el = h("button", { type: "button", className: "chip token", title: `Remove ${label}`, ariaLabel: `Remove ${label}` }, [
+      lead,
+      h("span", { className: "chip-label" }, [label]),
+      icon("i-x"),
+    ]);
+    el.dataset.key = `strip:${group}:${value}`;
+    if (hue) el.dataset.hue = hue;
+    el.addEventListener("click", () => {
+      const next = new Set(filters[group]);
+      next.delete(value);
+      writeFilters({ ...filters, [group]: next });
+    });
+    tokens.push(el);
+  };
+  for (const tag of filters.tags) token("tags", tag, tag, h("span", { className: "dot" }), hues.get(tag));
+  for (const kind of filters.kind) {
+    const known = KINDS[kind as SourceKind];
+    token("kind", kind, known?.label ?? kind, icon(known?.icon ?? "i-globe"));
+  }
+  for (const person of filters.people) {
+    const item = feed.items.find((candidate) => candidate.author === person);
+    token("people", person, person, h("span", { className: "monogram", ariaHidden: "true" }, [initial(person)]), item ? hueFor(item) : hueOf(person));
+  }
+  activeStrip.hidden = tokens.length === 0;
+  if (tokens.length === 0) {
+    activeStrip.replaceChildren();
+    return;
+  }
+  const clear = h("button", { type: "button", className: "chip clear-chip", title: "Clear filters (Esc)", ariaLabel: `Clear ${active} filter${active === 1 ? "" : "s"}` }, [
+    icon("i-x"),
+    "Clear",
+  ]);
+  clear.dataset.key = "strip:clear";
+  clear.addEventListener("click", () => clearFilters(filters));
+  activeStrip.replaceChildren(clear, ...tokens);
+}
+
+function openSheet(): void {
+  if (sheet.open) return;
+  sheet.showModal();
+  filtersButton.setAttribute("aria-expanded", "true");
+  sheet.querySelector<HTMLElement>(".sheet-close")!.focus({ focusVisible: false } as FocusOptions);
+}
+
+// Pull the sheet down by its header to dismiss it; a short pull springs back.
+function dragToClose(handle: HTMLElement): void {
+  let startY: number | undefined;
+  let pull = 0;
+  handle.addEventListener("pointerdown", (event) => {
+    if ((event.target as Element).closest("button")) return;
+    startY = event.clientY;
+    pull = 0;
+    handle.setPointerCapture(event.pointerId);
+    sheet.style.transition = "none";
+  });
+  handle.addEventListener("pointermove", (event) => {
+    if (startY === undefined) return;
+    pull = Math.max(0, event.clientY - startY);
+    sheet.style.transform = `translateY(${pull}px)`;
+  });
+  const release = () => {
+    if (startY === undefined) return;
+    startY = undefined;
+    sheet.style.transition = "";
+    sheet.style.transform = "";
+    if (pull > 90) sheet.close();
+  };
+  handle.addEventListener("pointerup", release);
+  handle.addEventListener("pointercancel", release);
+  handle.addEventListener("lostpointercapture", release);
+}
+
+// On phones the bar tucks away while you scroll down into the feed and comes back on any scroll up.
+function tuckOnScroll(): void {
+  let lastY = scrollY;
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    const y = scrollY;
+    const delta = y - lastY;
+    if (Math.abs(delta) < 6) return;
+    lastY = y;
+    // Only once the masthead has scrolled away, so the bar never tucks while the page top is in view.
+    const pastTop = y > masthead.offsetHeight + controls.offsetHeight;
+    const tuck = !railLayout.matches && !reducedMotion.matches && pastTop && delta > 0 && !controls.contains(document.activeElement);
+    controls.classList.toggle("tucked", tuck);
+  };
+  addEventListener(
+    "scroll",
+    () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    },
+    { passive: true },
+  );
 }
 
 type ChipFactory = (group: ChipGroup, value: string, lead: Node, label: string, hue?: Hue) => HTMLButtonElement;

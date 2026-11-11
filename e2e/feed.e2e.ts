@@ -4,6 +4,13 @@ import { expect, ITEMS, test } from "./fixtures";
 const cards = (page: Page) => page.getByRole("main").getByRole("article");
 const card = (page: Page, title: string) => cards(page).filter({ hasText: title });
 const titles = (page: Page) => page.getByRole("main").getByRole("heading", { level: 2 }).allInnerTexts();
+// On phones the tags, sources, No AI and people live in a bottom sheet; on desktop they are the rail.
+const openFilters = async (page: Page, isMobile: boolean) => {
+  if (isMobile) await page.locator(".filters-button").click();
+};
+const closeFilters = async (page: Page, isMobile: boolean) => {
+  if (isMobile) await page.getByRole("button", { name: "Close filters" }).click();
+};
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -33,15 +40,19 @@ test("the format tabs narrow the feed and Back restores it", async ({ page }) =>
   await expect(cards(page)).toHaveCount(4);
 });
 
-test("a tag chip filters, and Clear or Esc removes every filter", async ({ page }) => {
+test("a tag chip filters, and Clear or Esc removes every filter", async ({ page, isMobile }) => {
+  await openFilters(page, isMobile);
   await page.getByRole("button", { name: "HCI", exact: true }).click();
   await expect(page).toHaveURL(/\?tags=HCI$/);
+  await closeFilters(page, isMobile);
   expect(await titles(page)).toEqual([ITEMS.hype.title, ITEMS.paper.title]);
 
   await page.getByRole("button", { name: "Clear 1 filter" }).click();
   await expect(cards(page)).toHaveCount(4);
 
+  await openFilters(page, isMobile);
   await page.getByRole("button", { name: "Creative Coding", exact: true }).click();
+  await closeFilters(page, isMobile);
   await expect(cards(page)).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(cards(page)).toHaveCount(4);
@@ -56,7 +67,7 @@ test("filters in the URL survive a reload", async ({ page }) => {
 });
 
 test("finding a person and pressing Enter shows only their posts", async ({ page, isMobile }) => {
-  test.skip(isMobile, "the people search box is desktop only");
+  await openFilters(page, isMobile);
   const find = page.getByRole("searchbox", { name: "Find a person" });
   await find.fill("nobody");
   await expect(page.getByText("No one by that name.")).toBeVisible();
@@ -67,19 +78,23 @@ test("finding a person and pressing Enter shows only their posts", async ({ page
 
   await find.press("Enter");
   await expect(page).toHaveURL(/\?people=Dana(\+|%20)Wu$/);
+  await closeFilters(page, isMobile);
   expect(await titles(page)).toEqual([ITEMS.paper.title]);
 });
 
-test("No AI hides posts about AI and stays on after a reload", async ({ page }) => {
+test("No AI hides posts about AI and stays on after a reload", async ({ page, isMobile }) => {
+  await openFilters(page, isMobile);
   const noAi = page.getByRole("button", { name: "No AI" });
   await noAi.click();
   await expect(noAi).toHaveAttribute("aria-pressed", "true");
+  await closeFilters(page, isMobile);
   await expect(card(page, ITEMS.hype.title)).toHaveCount(0);
   await expect(cards(page)).toHaveCount(3);
   await expect(page.getByText("1 post hidden by your filters.")).toBeAttached();
 
   await page.reload();
   await expect(cards(page)).toHaveCount(3);
+  await openFilters(page, isMobile);
   await expect(page.getByRole("button", { name: "No AI" })).toHaveAttribute("aria-pressed", "true");
 });
 

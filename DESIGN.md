@@ -264,11 +264,11 @@ Each hue is a triple. The **wash** is the tile and chip-selected background. The
 
 ## Layout
 
-The phone layout is one centered column, 620px max, with a 16px gutter (24px at 720px and up). The masthead respects the top safe area. The controls (format tabs, then a horizontally scrolling chip row with no visible scrollbar) stick to the top on the ground color. Cards stack 28px apart.
+The phone layout is one centered column, 620px max, with a 16px gutter (24px at 720px and up). The masthead respects the top safe area and scrolls away. Under it one bar sticks to the top on the ground color: the icon format tabs and a Filters button, with a strip of active-filter tokens beneath while a filter is on. The bar tucks up while you scroll down into the feed and returns on any scroll up; with reduced motion it stays put. Tags, sources, No AI and people live in the filter sheet. Cards stack 28px apart. Below 400px the wordmark drops to 1.3rem so it stays on one line.
 
 From 1024px the body becomes a two-column grid: a 300px sticky rail and the feed, 40px apart, 1560px max with 32px side padding. The rail holds the masthead and the controls. The tabs stack vertically, the chips wrap, and the rule between tag chips and source chips turns horizontal. The feed becomes a 2-column grid (36px row gap, 28px column gap), and 3 columns from 1440px. A moment shown alone spans every column, centered at 560px max.
 
-Breakpoints: 720px, 1024px, 1440px.
+Breakpoints: 400px (wordmark), 420px (Filters label), 720px, 1024px, 1440px. Below 1024px the rail element is `display: contents`, so the sticky bar sticks to the page rather than to the rail.
 
 ## Elevation & Depth
 
@@ -287,7 +287,8 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 - **Character:** a single pill track that answers "watch or read?".
 - **Shape:** a pill group on the surface with 4px inner padding. Each tab is a 40px pill with an icon, a label and a tabular count.
 - **States:** idle tabs are muted and take a 7% text tint on hover; the selected tab fills with Electric Violet (aria-pressed). A tab with no matches is disabled in a solid muted tint that still clears 3:1.
-- **Rail:** one row of 34px tabs. Only the selected tab shows its label and count; the rest are icons (see Rail tabs).
+- **Bar and rail:** one row of tabs (40px on phones, 34px in the rail). Only the selected tab shows its label and count; the rest are icons (see Rail tabs). The filter sheet repeats them as a 2-by-2 grid with every label and count, so four-digit counts never clip.
+- **Counts:** full ink at weight 500, never opacity, so they clear 4.5:1 on the violet pill.
 
 ### Chips
 - **Style:** a surface pill with a 1.5px line border. Tag chips lead with a 10px dot in the hue's solid. Source chips lead with a muted 16px drawn icon.
@@ -307,10 +308,13 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 - **Card actions:** a heart (favourite) and a check (mark read or watched) in each card's footer, as 36px circles on a 12% ink tint. A pressed heart fills berry, a pressed check fills mint. Video cards carry no format pill; the thumbnail already says "video".
 - **Leaving a list:** a card that leaves the current list fades and shrinks out (220ms), then the cards after it glide into the gap (450ms, out-expo). There is no undo bar; the Archive is the undo.
 - **List links:** Favourites and Archive sit in the masthead as 44px circles with an accent count badge on phones, and as two labeled pills side by side in the desktop rail, with the count badge floating on each pill's corner.
-- **Rail tabs:** on desktop the All, Posts, Watch and Read tabs share one row. The selected tab grows to show its label and count; the others are icon buttons whose label and count live in the tooltip and accessible name ("Watch, 620 posts"). Idle tabs tint on hover; an empty tab is a solid muted tint (at least 3:1), not faded. Phones keep labeled tabs with counts.
-- **People list:** on desktop, a "People · N" heading with a "Find a person" box above a two-column grid of 32px rows (22px monogram, name truncated with the full name in the tooltip). Typing filters as you go, Enter picks the first unselected match, Esc clears the search before it clears filters. Selected people always sort first. Phones keep one scrolling chip row.
+- **Rail tabs:** on every width the All, Posts, Watch and Read tabs share one row. The selected tab grows to show its label and count; the others are icon buttons whose label and count live in the tooltip and accessible name ("Watch, 620 posts"). Idle tabs tint on hover; an empty tab is a solid muted tint (at least 3:1), not faded.
+- **Filters button (phones):** a 48px surface circle with a sliders icon beside the tabs, labeled "Filters" from 420px. An accent badge counts the tag, source and people filters that are on. It opens the filter sheet.
+- **Filter sheet (phones):** a native `<dialog>` in the post viewer's shape (28px top corners, grab bar, slides up 48px), 92dvh tall. A sticky head with a centered "Filters" title and a 44px close; then the 2-by-2 tabs, the chips (wrapped, on the ground color), Sources and People with "Find a person". A sticky footer holds "Clear all" and a primary "Show N posts" that closes it. Filters apply live underneath; the close button, the footer button, Esc, a backdrop tap and a pull down on the head (over 90px) all close it and keep the selection. From 1024px the same dialog is `display: contents` and its contents are the rail.
+- **Active strip (phones):** while a filter is on, a scrolling row of 32px tokens under the bar: a Clear chip pinned to its start, then each tag, source and person in its hue wash with an ×. A tap removes that one. The row fades out at its right edge.
+- **People list:** on desktop, a "People · N" heading with a "Find a person" box above a two-column grid of 32px rows (22px monogram, name truncated with the full name in the tooltip). Typing filters as you go, Enter picks the first unselected match, Esc clears the search before it clears filters. Selected people always sort first. Phones show the same list in the filter sheet with 40px rows.
 - **Sources:** folded behind a "Sources" toggle chip after the tags, because the format tabs already answer most of that question. It stays open, and cannot be folded, while a source filter is on, and shows how many are on. Source icons never reuse a format icon: YouTube a screen, Blogs a page, Substack an envelope, Bluesky and Mastodon an @.
-- **Clear chip:** appears first in the chip row only while a filter is on, as a filled accent pill with an × and the number of active filters. On phones it is sticky at the row's left edge, masked by the ground, so it stays reachable however far the row scrolls. Esc does the same. It clears tags, sources, people and the format tab, but keeps the current list and No AI.
+- **Clear chip:** appears first in the rail's chip list only while a filter is on, as a filled accent pill with an × and the number of active filters. On phones it leads the active strip instead, sticky at its left edge and masked by the ground, and the sheet footer has "Clear all". Esc does the same (when the sheet is closed). It clears tags, sources, people and the format tab, but keeps the current list and No AI.
 - **Hide chip:** a neutral chip with an eye-off icon that leads the chip row. It is labeled "No <topic>" and fills with the text color when on, so it reads as a setting rather than a tag.
 - **Jewel variant:** with no image, the tile deepens to the jewel mix. The monogram and format pill invert to on-jewel, tags are outlined (1.5px, 45% on-jewel) rather than tinted, and the go arrow sits on a 14% on-jewel tint. The byline time uses full on-jewel ink.
 
@@ -323,7 +327,7 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 - A surface card with 32px corners and the soft shadow, holding a centered 96px sprout, a display title, Literata body copy, an optional pill button, and optional fine print. The "happy" mood hops and waves its leaves once when it scrolls into view. The "sleepy" mood closes its eyes and is used for the end, empty and error states.
 
 ### Masthead
-- The 40px sprout and the wordmark on the left, the 44px circular theme toggle on the right. On hover the toggle rotates -20 degrees, and the sun and moon icons cross-fade with a rotation.
+- The 40px sprout and the wordmark on the left (34px and 1.3rem below 400px), the Favourites and Archive circles and the 44px circular theme toggle on the right. On hover the toggle rotates -20 degrees, and the sun and moon icons cross-fade with a rotation.
 
 ### Loading Skeleton
 - Wash tiles with pulsing bars in a 30% solid tint, in rotating hues.
