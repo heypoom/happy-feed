@@ -3,7 +3,7 @@ import { assignHues, hueOf, type Hue } from "./shared/hues";
 import { emptyLibrary, isShelved, parseLibrary, shelfItems, SHELVES, toggleShelf, type Library, type Shelf } from "./shared/library";
 import { orderFeed } from "./shared/order";
 import { blueskyApiUrl, fromBluesky, fromMastodon, mastodonApiUrl, type PostView } from "./shared/post-view";
-import { FORMAT_OF, type Feed, type FeedItem, type Format, type SourceKind } from "./shared/types";
+import { FORMAT_OF, type Feed, type FeedItem, type Format, type Manifest, type SourceKind } from "./shared/types";
 
 type View = "feed" | Shelf;
 type Filters = { view: View; show: Format | ""; tags: Set<string>; kind: Set<string>; people: Set<string> };
@@ -70,6 +70,8 @@ let hiddenCount = 0;
 let library = loadLibrary();
 let rows: Row[] = [];
 let rendered = 0;
+// The recent chunk is on screen and older ones are still loading, so the end of the list is not the end.
+let archivePending = false;
 
 const observer = new IntersectionObserver(
   ([entry]) => {
@@ -188,11 +190,21 @@ function syncTheme(): void {
   for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) meta.content = ground;
 }
 
+// The manifest names the chunks, recent first. A plain feed URL paints from the recent chunk and adds
+// the archive when it arrives. A filtered or shelf URL waits for every chunk, since its counts,
+// people and shelves need every post. A chunk that fails to load leaves only its own posts out.
 async function start(): Promise<void> {
+  let loadArchive: () => Promise<FeedItem[]>;
   try {
-    const response = await fetch(`${import.meta.env.BASE_URL}feed.json`, { cache: "no-cache" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    feed = (await response.json()) as Feed;
+    const { chunks, ...manifest } = await getJson<Manifest>("feed/manifest.json", { cache: "no-cache" });
+    const [recent, ...older] = chunks;
+    loadArchive = async () =>
+      (await Promise.allSettled(older.map((chunk) => getJson<FeedItem[]>(chunk.path)))).flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+    const filters = readFilters();
+    const whole = filters.view !== "feed" || activeFilterCount(filters) > 0;
+    const [first, rest] = await Promise.all([recent ? getJson<FeedItem[]>(recent.path) : [], whole ? loadArchive() : []]);
+    feed = { ...manifest, items: [...first, ...rest] };
+    archivePending = !whole && older.length > 0;
   } catch {
     list.replaceChildren(
       moment({
@@ -212,6 +224,47 @@ async function start(): Promise<void> {
   });
   render();
   observer.observe(sentinel);
+  if (archivePending) void loadArchive().then(addArchive);
+}
+
+async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${import.meta.env.BASE_URL}${path}`, init);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return (await response.json()) as T;
+}
+
+// The archive joins a feed already on screen. Cards the reader can see stay put when the new list
+// starts with them, or when the reader has scrolled past the first screen; the rest of the list
+// follows them. Otherwise the list renders afresh.
+function addArchive(items: FeedItem[]): void {
+  archivePending = false;
+  feed.items = feed.items.concat(items);
+  const filters = readFilters();
+  const chipMatches = viewItems(filters);
+  const next = rowsFor(filters, chipMatches);
+  const shown = shownRowIds();
+  const samePrefix = shown.every((id, i) => next[i] && rowId(next[i]) === id);
+  if (shown.length === 0 || (!samePrefix && scrollY < innerHeight)) return render();
+
+  renderControls(filters, chipMatches);
+  const onScreen = new Set(shown);
+  rows = [...rows.filter((row) => onScreen.has(rowId(row))), ...next.filter((row) => !onScreen.has(rowId(row)))];
+  rendered = shown.length;
+  if (rendered >= rows.length) appendPage();
+  else {
+    observer.unobserve(sentinel);
+    observer.observe(sentinel);
+  }
+}
+
+function rowId(row: Row): string {
+  return row.type === "card" ? row.item.id : "caught-up";
+}
+
+function shownRowIds(): string[] {
+  return [...list.children].flatMap((el) =>
+    el instanceof HTMLElement && el.dataset.id ? [el.dataset.id] : el.getAttribute("role") === "separator" ? ["caught-up"] : [],
+  );
 }
 
 function loadHidden(): Set<ExcludeId> {
@@ -299,15 +352,7 @@ function render(): void {
 
   const chipMatches = viewItems(filters);
   renderControls(filters, chipMatches);
-
-  const visible = chipMatches.filter((item) => !filters.show || FORMAT_OF[item.kind] === filters.show);
-  if (view === "feed") {
-    const { ordered, freshCount } = orderFeed(visible, new Date());
-    rows = ordered.map((item): Row => ({ type: "card", item }));
-    if (freshCount > 0 && freshCount < ordered.length) rows.splice(freshCount, 0, { type: "caught-up" });
-  } else {
-    rows = visible.map((item): Row => ({ type: "card", item }));
-  }
+  rows = rowsFor(filters, chipMatches);
   rendered = 0;
   list.replaceChildren(...(view === "feed" ? [] : [shelfHead(view, Object.keys(library[view]).length)]));
 
@@ -326,6 +371,15 @@ function render(): void {
     return;
   }
   appendPage();
+}
+
+function rowsFor(filters: Filters, chipMatches: FeedItem[]): Row[] {
+  const visible = chipMatches.filter((item) => !filters.show || FORMAT_OF[item.kind] === filters.show);
+  if (filters.view !== "feed") return visible.map((item): Row => ({ type: "card", item }));
+  const { ordered, freshCount } = orderFeed(visible, new Date());
+  const rows = ordered.map((item): Row => ({ type: "card", item }));
+  if (freshCount > 0 && freshCount < ordered.length) rows.splice(freshCount, 0, { type: "caught-up" });
+  return rows;
 }
 
 // The feed hides archived posts and excluded topics; a shelf shows exactly what you saved.
@@ -371,7 +425,7 @@ function appendPage(): void {
   const page = rows.slice(rendered, rendered + PAGE_SIZE);
   list.append(...page.map((row) => (row.type === "card" ? renderCard(row.item) : renderCaughtUp())));
   rendered += page.length;
-  if (rendered >= rows.length && readFilters().view === "feed") list.append(renderEnd());
+  if (rendered >= rows.length && readFilters().view === "feed" && !archivePending) list.append(renderEnd());
 }
 
 function renderControls(filters: Filters, chipMatches: FeedItem[]): void {

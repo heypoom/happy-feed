@@ -13,12 +13,13 @@ A calm, endless feed of creators I chose, served at https://feed.poom.dev. YouTu
 
 ```sh
 bun install
-bun run fetch   # writes public/feed.json from collection/*.json
-bun run dev     # http://localhost:5173
+bun run refresh -- --local   # fetches every source into the local R2 bucket that dev serves
+bun run dev        # http://localhost:5173, the site and the Worker
 bun test
-bun run e2e     # Playwright on phone and desktop, against a fixture feed with the network blocked
-bun run build   # static site in dist/
-bun run og      # re-renders public/og.png from scripts/og/og.html
+bun run typecheck  # the client and scripts, then the Worker against the Workers runtime types
+bun run e2e        # Playwright on phone and desktop, against a fixture feed with the network blocked
+bun run build      # the site and the Worker in .cloudflare/output/
+bun run og         # re-renders public/og.png from scripts/og/og.html
 ```
 
 ## Collections
@@ -54,16 +55,29 @@ An entry needs at least one source. Every post a source publishes is kept, with 
 | `bluesky` | `https://bsky.app/profile/<handle>` via the public API, no replies or reposts | Every post |
 | `mastodon` | `https://<server>/@<user>` via the server's API, no replies or boosts | Every post |
 
-Every request is retried once after a timeout, dropped connection or 5xx, and up to three times after a 429, honouring `Retry-After`. API sources fall back to RSS if the first archive page fails; a later page failing keeps the posts already fetched. A source that still fails lands in `feed.json`'s `errors`, and the rest builds. `twitter` and `facebook` keys exist but need a self-hosted RSS bridge (`RSS_BRIDGE`, `RSS_BRIDGE_FACEBOOK`); no free route to X exists.
+Every request is retried once after a timeout, dropped connection or 5xx, and up to three times after a 429, honouring `Retry-After`. API sources fall back to RSS if the first archive page fails; a later page failing keeps the posts already fetched. A source that still fails keeps the posts it had and lands in the manifest's `errors`, and the rest publishes. `twitter` and `facebook` keys exist but need a self-hosted RSS bridge (`RSS_BRIDGE`, `RSS_BRIDGE_FACEBOOK`); no free route to X exists.
 
-DeArrow lookups are cached in `.cache/dearrow.json`: new videos are re-checked every 6 hours, older ones every few days to a month. DeArrow's API and data are [CC BY-NC-SA 4.0](https://github.com/ajayyy/SponsorBlock/wiki/Database-and-API-License), credited at the end of the feed.
+DeArrow lookups are cached in `state/dearrow.json` in the bucket: new videos are re-checked every 6 hours, older ones every few days to a month. DeArrow's API and data are [CC BY-NC-SA 4.0](https://github.com/ajayyy/SponsorBlock/wiki/Database-and-API-License), credited at the end of the feed.
+
+## How the feed stays fresh
+
+The site is a Cloudflare Worker at `feed.poom.dev` (`cloudflare.config.ts`, `worker/index.ts`) with an R2 bucket, `happy-feed`, bound as `FEED`. A cron runs the Worker at minute 17 of every hour:
+
+1. **Refresh.** Each source has a record in `sources/<key>.json` with every post ever fetched from it and how the last fetch went. A source that has worked before is read at head depth (the newest page of a Substack, Bluesky or Mastodon archive). New posts join the stored ones, and a failed fetch keeps them. The Sunday 03:17 UTC run reads every page.
+2. **Publish.** The Worker merges the records, applies DeArrow, and writes `feed/items-<label>-<hash>.json` chunks: `recent` (since the 1st of last month, UTC), then one per year. It writes `feed/manifest.json` last, and deletes chunks that nothing has referenced for 2 days.
+
+The client fetches the manifest on every load, then the `recent` chunk, and paints. The rest of the archive arrives behind it. A link with a filter or a shelf waits for every chunk, because its counts and people need the whole feed. Chunks are named by their content, so a phone downloads an unchanged year once.
+
+To refresh from your machine instead (Substack rate-limits Cloudflare's network), run the same code with `bun run refresh`. Options:
+
+- `--kind substack` or `--author "Name"` refresh only the matching sources (each can repeat).
+- `--full` reads every page.
+- `--local` writes to the local bucket that `bun run dev` serves instead of the live one.
 
 ## Deploy
 
-The site is an assets-only Cloudflare Worker at `feed.poom.dev` (`cloudflare.config.ts`).
-
-- **From your machine:** `bun run deploy` fetches, builds, and runs `cf deploy dist`. Needs Node.js 22.18+ and `npx cf auth login`.
-- **From GitHub:** `.github/workflows/deploy.yml` does the same on every push to `main`, every 3 hours, and on demand. It needs a `CLOUDFLARE_API_TOKEN` repository secret made from the "Edit Cloudflare Workers" token template.
+- **From your machine:** `bun run deploy` builds the site and the Worker and runs `cf deploy`. Needs Node.js 22.18+ and `npx cf auth login`. Deploys change code only; the feed itself refreshes on the cron.
+- **From GitHub:** `.github/workflows/deploy.yml` tests and deploys on every push to `main` and on demand. It needs a `CLOUDFLARE_API_TOKEN` repository secret made from the "Edit Cloudflare Workers" token template.
 
 ## Agent skills
 

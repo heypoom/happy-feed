@@ -1,10 +1,9 @@
 name: Deploy
 
+# Deploys the site and the Worker. The feed itself refreshes on the Worker's own hourly cron.
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: "17 */3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -25,20 +24,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: actions/cache@v4
-        with:
-          path: .cache
-          key: feed-cache-${{ github.run_id }}
-          restore-keys: feed-cache-
       - run: bun install --frozen-lockfile
       - run: bun test
       - run: bunx playwright install --with-deps chromium
       - run: bun run e2e
-      - run: bun run fetch
-        env:
-          RSS_BRIDGE: ${{ secrets.RSS_BRIDGE || vars.RSS_BRIDGE }}
-          RSS_BRIDGE_FACEBOOK: ${{ secrets.RSS_BRIDGE_FACEBOOK || vars.RSS_BRIDGE_FACEBOOK }}
-      - run: bun run build
-      - run: npx cf deploy dist
+      - run: npx cf deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

@@ -14,7 +14,7 @@ related_targets: ["src/main.ts","src/style.css"]
 
 # Feed surface
 
-Scope: the single feed page (`index.html`, `src/main.ts`, `src/style.css`). Visitor mode: Experience. Poom scrolls one-handed on a phone in bed at night, on the go, and in a desktop tab. Job: scroll to something worth watching or reading, then stop gently when caught up. Content: real items from `public/feed.json`. Many blogs (Stack Diver) have no images, so the read layout is text-first. Constraints: light and dark with a header toggle and no settings screen; filters by tag and source in the URL; reduced motion respected.
+Scope: the single feed page (`index.html`, `src/main.ts`, `src/style.css`). Visitor mode: Experience. Poom scrolls one-handed on a phone in bed at night, on the go, and in a desktop tab. Job: scroll to something worth watching or reading, then stop gently when caught up. Content: real items from the published feed (`bun run refresh -- --local` fills the local copy). Many blogs (Stack Diver) have no images, so the read layout is text-first. Constraints: light and dark with a header toggle and no settings screen; filters by tag and source in the URL; reduced motion respected.
 
 Pinned references (user, 2026-11-11): Nibble "For you" for category-colored tiles and the Watch/Listen split; Pi for warm mixed card shapes. Also pinned: tag colors, distinct watch and read cards, a mascot when you're caught up, a theme toggle.
 

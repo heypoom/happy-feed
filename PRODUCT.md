@@ -20,7 +20,7 @@ There is no ranking for engagement. Only hand-picked sources are shown, plus a m
 
 ## Operating Context
 
-- Posts are fetched into a static `feed.json` at deploy time (`bun run deploy`, or the GitHub Action every 3 hours once it has a Cloudflare token). The site is an assets-only Cloudflare Worker at https://feed.poom.dev.
+- A Cloudflare Worker at https://feed.poom.dev refreshes every source hourly and publishes the feed to R2, so it stays fresh without a deploy. A phone first loads a small manifest and the last month or so of posts, then the archive behind it. Substack rate-limits Cloudflare's network, so Poom refreshes it from the laptop (`bun run refresh -- --kind substack`).
 - Collections are edited by hand as JSON. Each entry has a name, tags, and provider URLs (`youtube`, `rss`, `substack`, `website`, `twitter`, `facebook`).
 - Filters by tag, source, and person live in the URL, so they can be bookmarked.
 - YouTube titles and thumbnails are replaced with DeArrow's crowdsourced, non-sensational versions when a trusted one exists (top submission, locked or not downvoted); the original title stays on hover, and the No AI filter still checks it. DeArrow data is CC BY-NC-SA 4.0, fine for this personal, non-commercial feed with credit.

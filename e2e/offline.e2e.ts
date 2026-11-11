@@ -2,7 +2,7 @@ import { expect, test } from "./fixtures";
 
 test("a feed that fails to load shows the napping moment and retries", async ({ page }) => {
   let failures = 1;
-  await page.route("/feed.json", (route) => (failures-- > 0 ? route.fulfill({ status: 503 }) : route.fallback()));
+  await page.route("/feed/manifest.json", (route) => (failures-- > 0 ? route.fulfill({ status: 503 }) : route.fallback()));
 
   await page.goto("/");
   await expect(page.getByText("The feed is napping")).toBeVisible();
