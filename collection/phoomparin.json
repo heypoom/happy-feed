@@ -18,6 +18,11 @@
     { "name": "3Blue1Brown", "youtube": "https://www.youtube.com/@3blue1brown", "substack": "https://3blue1brown.substack.com", "tags": ["Math"] },
     { "name": "carykh", "youtube": "https://www.youtube.com/@carykh", "tags": ["STEM"] },
     { "name": "Grownkid", "substack": "https://grownkid.substack.com", "tags": ["Play"] },
+    { "name": "Slime Mold Time Mold", "rss": "https://slimemoldtimemold.com/feed/", "tags": ["Play"] },
+    { "name": "Dynomight", "substack": "https://dynomight.substack.com", "tags": ["Play"] },
+    { "name": "Experimental History", "description": "Adam Mastroianni", "substack": "https://experimentalhistory.substack.com", "tags": ["Play"] },
+    { "name": "Austin Kleon", "substack": "https://austinkleon.substack.com", "tags": ["Play"] },
+    { "name": "The Art of Noticing", "description": "Rob Walker", "substack": "https://robwalker.substack.com", "tags": ["Play"] },
     { "name": "GMTK", "youtube": "https://www.youtube.com/@GMTK", "tags": ["Design"] },
     { "name": "Tantacrul", "youtube": "https://www.youtube.com/@Tantacrul", "tags": ["Design"] },
     { "name": "Tom Scott", "youtube": "https://www.youtube.com/@TomScottGo", "tags": ["STEM"] },
@@ -78,6 +83,10 @@
     { "name": "The Convivial Society", "description": "L.M. Sacasas", "substack": "https://theconvivialsociety.substack.com", "tags": ["HCI"] },
     { "name": "Computer History Museum", "youtube": "https://www.youtube.com/@ComputerHistory", "tags": ["STEM"] },
     { "name": "The British Museum", "youtube": "https://www.youtube.com/@britishmuseum", "tags": ["Design"] },
-    { "name": "dtinth", "youtube": "https://www.youtube.com/@dtinth", "tags": ["Coding"] }
+    { "name": "dtinth", "youtube": "https://www.youtube.com/@dtinth", "tags": ["Coding"] },
+    { "name": "Chips and Cheese", "substack": "https://chipsandcheese.com", "tags": ["Computer Science"] },
+    { "name": "Infinitely More", "description": "Joel David Hamkins", "substack": "https://joeldavidhamkins.substack.com", "tags": ["Math"] },
+    { "name": "Personal Canon", "description": "Celine Nguyen", "substack": "https://www.personalcanon.com", "tags": ["Design"] },
+    { "name": "Contraptions", "description": "Venkatesh Rao", "substack": "https://contraptions.venkateshrao.com", "tags": ["STEM"] }
   ]
 }
