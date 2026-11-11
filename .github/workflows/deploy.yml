@@ -32,6 +32,8 @@ jobs:
           restore-keys: feed-cache-
       - run: bun install --frozen-lockfile
       - run: bun test
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run e2e
       - run: bun run fetch
         env:
           RSS_BRIDGE: ${{ secrets.RSS_BRIDGE || vars.RSS_BRIDGE }}

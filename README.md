@@ -16,6 +16,7 @@ bun install
 bun run fetch   # writes public/feed.json from collection/*.json
 bun run dev     # http://localhost:5173
 bun test
+bun run e2e     # Playwright on phone and desktop, against a fixture feed with the network blocked
 bun run build   # static site in dist/
 bun run og      # re-renders public/og.png from scripts/og/og.html
 ```

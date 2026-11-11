@@ -11,12 +11,14 @@
     "og": "node scripts/og/render.mjs",
     "deploy": "bun run fetch && vite build && cf deploy dist",
     "test": "bun test",
+    "e2e": "playwright test",
     "icons": "node scripts/icons/render.mjs"
   },
   "dependencies": {
     "fast-xml-parser": "^5.12.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/bun": "^1.4.4",
     "cf": "^1.0.0-beta.29",
     "puppeteer": "23.11.1",
