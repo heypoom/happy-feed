@@ -83,9 +83,13 @@ export async function refresh(sources: Source[], run: Run & { deadline?: number 
   );
   if (deadline === Infinity) await workers;
   else {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    await Promise.race([workers, new Promise((resolve) => (timer = setTimeout(resolve, Math.max(0, deadline - Date.now()))))]);
-    clearTimeout(timer);
+    let stop = () => {};
+    const timeUp = new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, Math.max(0, deadline - Date.now()));
+      stop = () => clearTimeout(timer);
+    });
+    await Promise.race([workers, timeUp]);
+    stop();
   }
   await store.put(STATE_PATHS.youtubeIds, state.youtubeIds);
   await store.put(STATE_PATHS.archivePages, state.archivePages);

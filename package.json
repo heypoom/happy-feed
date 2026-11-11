@@ -9,8 +9,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "og": "node scripts/og/render.mjs",
-    "deploy": "bun run fetch && vite build && cf deploy dist",
+    "deploy": "bun run fetch && cf deploy",
     "test": "bun test",
+    "typecheck": "cf workers types && tsc --noEmit -p . && tsc --noEmit -p worker",
     "e2e": "playwright test",
     "icons": "node scripts/icons/render.mjs"
   },
@@ -18,6 +19,7 @@
     "fast-xml-parser": "^5.12.0"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "2.0.0-beta.v.15",
     "@playwright/test": "^1.65.0",
     "@types/bun": "^1.4.4",
     "cf": "^1.0.0-beta.29",

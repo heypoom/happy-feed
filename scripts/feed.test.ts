@@ -206,6 +206,18 @@ test("a source removed from the collections leaves the feed", async () => {
   expect(feed.items.map((item) => item.author)).toEqual(["Ink"]);
 });
 
+test("a run with a deadline returns by then and leaves the unfinished source as stored", async () => {
+  const store = new MemoryStore();
+  await refresh(mergeSources([rssOnly]), { store, providers: registry([raw("a", "One", 1)]), now });
+  const stored = await recordOf(store);
+  const hang = registry(() => new Promise<RawItem[]>(() => {}));
+  const started = Date.now();
+  const records = await refresh(mergeSources([rssOnly]), { store, providers: hang, now, deadline: Date.now() + 50 });
+  expect(Date.now() - started).toBeLessThan(1000);
+  expect(records).toEqual([]);
+  expect(await recordOf(store)).toEqual(stored!);
+});
+
 test("recent holds everything since the 1st of last month (UTC); older posts split by year", async () => {
   const items = [
     at("oct-first", "2026-10-01T00:00:00.000Z"),

@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2024"],
+    "types": ["vite/client"],
+    "allowImportingTsExtensions": true
+  },
+  "include": [".", "../cloudflare.config.ts", "../.cloudflare/types"]
+}
