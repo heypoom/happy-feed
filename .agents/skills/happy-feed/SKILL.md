@@ -26,6 +26,7 @@ The owner writes `Name URL (Tag)`.
 1. Append one line per entry at the end of `collection/phoomparin.json`, keeping the name exactly as written. One person with several sources is one entry with several keys.
 2. Resolve the URL to a working source key: `youtube` for `@handle`; a Substack profile (`substack.com/@x`) is not a feed, so use the publication domain; X has no free route, so follow the person on `bluesky` or `mastodon` instead; a blog whose RSS holds only recent posts gets an `archive` index page too.
 3. Done when `bun run refresh -- --local --author "<Name>"` lists the new author with a nonzero count and no failure. After the owner deploys, the next hourly run picks the source up; `bun run refresh -- --author "<Name>"` publishes it right away.
+4. Any collection edit (a new source, a tag, a rename, a mute word) needs a deploy to stick. The Worker bundles the collection at deploy time and every hourly run publishes from that copy, so a laptop refresh without a deploy is undone at the next :17. Pushing `main` deploys through the GitHub workflow.
 
 A ninth tag would reuse a hue: add a hue to the `:root`, dark-media and `[data-theme="dark"]` token blocks plus `HUES` in `src/shared/hues.ts`, with ink-on-wash and on-jewel contrast at 4.5:1 or more in both themes.
 
