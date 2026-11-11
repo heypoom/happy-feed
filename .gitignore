@@ -7,3 +7,5 @@ public/feed.json
 # Agent skills are installed locally, not vendored (see README)
 .claude/skills/
 .claude/agents/
+test-results
+playwright-report

@@ -34,7 +34,7 @@ Phones are the primary scene (one-handed, at night). Desktop is a 300px sticky r
 
 1. For design work, use the installed `impeccable` skill; its detector hook runs on UI edits.
 2. Verify on the real render, not by reasoning: a puppeteer script (`createRequire("<repo>/package.json")("puppeteer")` against `bun run build` + `vite preview` on :4173) at 390px and 1280px, light and dark. Measure: horizontal overflow is 0, element positions, counts, no page errors. Look at the screenshots.
-3. Done when the measurements match the intent, `bun test` shows `0 fail`, and `DESIGN.md` describes what shipped.
+3. Done when the measurements match the intent, `bun test` shows `0 fail`, `bun run e2e` shows `0 failed`, and `DESIGN.md` describes what shipped.
 
 ## Deploy
 
@@ -45,6 +45,7 @@ Done when the live site serves the change: `curl https://feed.poom.dev/feed.json
 ## Working agreements
 
 - Commit each verified unit with a scoped prefix (`collection:`, `client:`, `feed:`, `rail:`, `cards:`, `design:`, `docs:`, `deploy:`). The owner pushes.
+- E2E specs in `e2e/*.e2e.ts` (not `.spec.ts`, which `bun test` would collect) use `e2e/fixtures.ts`: a fixture `feed.json` and every non-localhost request aborted. Never let an e2e test load the real feed or refetch sources; that sends traffic to other people's sites.
 - Read test results by the counts line (`grep -E "(pass|fail)"`); a `tail -1` hid a failing test once.
 - Product rules that are easy to break: the viewer never shows replies, and mentions or hashtags are plain text; No AI checks the title, original title and summary, but a title saying "No AI" keeps the post; dedupe keys include the URL query (every YouTube video is `watch?v=`); the feed has no age cutoff.
 - Contrast: compute it from the hex tokens. Values built with `color-mix()` come back from `getComputedStyle` as `color(srgb …)` and break naive parsers.
