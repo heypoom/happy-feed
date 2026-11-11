@@ -19,12 +19,21 @@ test("a timeout is retried once and then succeeds", async () => {
   expect(source.calls()).toBe(2);
 });
 
-test("a 503 or 429 is retried once", async () => {
-  for (const status of [503, 429]) {
-    const source = flaky([new HttpError(status, "https://example.com")]);
-    expect(await withRetry(source.attempt, 0)).toBe("ok");
-    expect(source.calls()).toBe(2);
-  }
+test("a 503 is retried once", async () => {
+  const source = flaky([new HttpError(503, "https://example.com"), new HttpError(503, "https://example.com")]);
+  await expect(withRetry(source.attempt, 0)).rejects.toThrow("HTTP 503");
+  expect(source.calls()).toBe(2);
+});
+
+test("a 429 is retried up to three times", async () => {
+  const limited = () => new HttpError(429, "https://example.com", 0);
+  const recovers = flaky([limited(), limited(), limited()]);
+  expect(await withRetry(recovers.attempt, 0)).toBe("ok");
+  expect(recovers.calls()).toBe(4);
+
+  const stays = flaky([limited(), limited(), limited(), limited()]);
+  await expect(withRetry(stays.attempt, 0)).rejects.toThrow("HTTP 429");
+  expect(stays.calls()).toBe(4);
 });
 
 test("a 404 fails at once without retrying", async () => {

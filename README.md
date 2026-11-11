@@ -54,7 +54,7 @@ An entry needs at least one source. Every post a source publishes is kept, with 
 | `bluesky` | `https://bsky.app/profile/<handle>` via the public API, no replies or reposts | Every post |
 | `mastodon` | `https://<server>/@<user>` via the server's API, no replies or boosts | Every post |
 
-Every request is retried once after a timeout, dropped connection, 429 or 5xx. API sources fall back to RSS if the API fails. A source that still fails lands in `feed.json`'s `errors`, and the rest builds. `twitter` and `facebook` keys exist but need a self-hosted RSS bridge (`RSS_BRIDGE`, `RSS_BRIDGE_FACEBOOK`); no free route to X exists.
+Every request is retried once after a timeout, dropped connection or 5xx, and up to three times after a 429, honouring `Retry-After`. API sources fall back to RSS if the first archive page fails; a later page failing keeps the posts already fetched. A source that still fails lands in `feed.json`'s `errors`, and the rest builds. `twitter` and `facebook` keys exist but need a self-hosted RSS bridge (`RSS_BRIDGE`, `RSS_BRIDGE_FACEBOOK`); no free route to X exists.
 
 DeArrow lookups are cached in `.cache/dearrow.json`: new videos are re-checked every 6 hours, older ones every few days to a month. DeArrow's API and data are [CC BY-NC-SA 4.0](https://github.com/ajayyy/SponsorBlock/wiki/Database-and-API-License), credited at the end of the feed.
 
