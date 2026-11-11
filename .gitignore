@@ -1,4 +1,5 @@
 node_modules
+dist
 .cloudflare
 
 # Agent skills are installed locally, not vendored (see README)
