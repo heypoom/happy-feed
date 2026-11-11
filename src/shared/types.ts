@@ -50,3 +50,10 @@ export type Feed = {
   kinds: SourceKind[];
   errors: FeedError[];
 };
+
+// The published feed is a small manifest plus items split into chunks: recent first, then one per
+// year, newest to oldest. A chunk's path carries a hash of its content, so an unchanged year keeps
+// its URL and stays cached.
+export type Chunk = { path: string; label: string; count: number; newest: string; oldest: string };
+
+export type Manifest = Omit<Feed, "items"> & { chunks: Chunk[] };
