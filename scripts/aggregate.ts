@@ -1,12 +1,12 @@
 import { SOURCE_KINDS, type Feed, type FeedError, type FeedItem, type SourceKind } from "../src/shared/types";
 import type { Collection } from "./collection";
-import type { ProviderRegistry } from "./providers";
+import type { ProviderRegistry, ProviderState } from "./providers";
 
-export async function buildFeed(collections: Collection[], providers: ProviderRegistry, now: Date): Promise<Feed> {
+export async function buildFeed(collections: Collection[], providers: ProviderRegistry, now: Date, state: ProviderState): Promise<Feed> {
   const errors: FeedError[] = [];
   const jobs = mergeSources(collections).map(async ({ kind, url, provider, author, tags, mute }): Promise<FeedItem[]> => {
     try {
-      const raw = await providers[provider](url);
+      const raw = await providers[provider](url, { depth: "full", state });
       return raw
         .filter((item) => !isMuted(item, mute))
         .map((item) => ({ ...item, id: `${kind}:${item.id}`, kind, author, tags }));

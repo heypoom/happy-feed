@@ -1,4 +1,5 @@
 import { htmlToText, truncate, type RawItem } from "../feed-xml";
+import type { ProviderOptions } from ".";
 import { fetchJson } from "../http";
 import { paged, withFallback } from "./paged";
 import { rss } from "./rss";
@@ -13,13 +14,13 @@ type Status = {
 
 // A profile URL like https://hachyderm.io/@<user>. The server's public API pages through every post,
 // without replies or boosts.
-export function mastodon(url: string): Promise<RawItem[]> {
+export function mastodon(url: string, { depth }: ProviderOptions): Promise<RawItem[]> {
   const profile = new URL(url);
   const acct = profile.pathname.replace(/^\/@/, "").replace(/\/+$/, "");
   return withFallback(
     async () => {
       const account = await fetchJson<{ id: string }>(`${profile.origin}/api/v1/accounts/lookup?acct=${encodeURIComponent(acct)}`);
-      return paged<string>(undefined, async (maxId) => {
+      return paged<string>(depth, async (maxId) => {
         const statuses = await fetchJson<Status[]>(
           `${profile.origin}/api/v1/accounts/${account.id}/statuses?exclude_replies=true&exclude_reblogs=true&limit=40${maxId ? `&max_id=${maxId}` : ""}`,
         );

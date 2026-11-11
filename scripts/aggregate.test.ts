@@ -5,6 +5,7 @@ import type { RawItem } from "./feed-xml";
 import type { ProviderRegistry } from "./providers";
 
 const now = new Date("2026-11-11T00:00:00Z");
+const state = () => ({ youtubeIds: {}, archivePages: {} });
 
 const raw = (id: string, title: string, daysAgo: number, summary?: string): RawItem => ({
   id,
@@ -45,12 +46,13 @@ test("drops muted items case-insensitively by title or summary", async () => {
       raw("c", "A calm essay", 3, "On the rise of ai psychosis"),
     ]),
     now,
+    state(),
   );
   expect(feed.items.map((item) => item.title)).toEqual(["Local-first software"]);
 });
 
 test("stamps author, kind and tags, keeps every item however old, and collects provider errors", async () => {
-  const feed = await buildFeed([collection], registry([raw("old", "Ancient", 4000), raw("new", "Fresh", 0)]), now);
+  const feed = await buildFeed([collection], registry([raw("old", "Ancient", 4000), raw("new", "Fresh", 0)]), now, state());
   expect(feed.items).toEqual([
     expect.objectContaining({ title: "Fresh", kind: "rss", author: "Ink", tags: ["HCI"] }),
     expect.objectContaining({ title: "Ancient" }),
@@ -62,7 +64,7 @@ test("stamps author, kind and tags, keeps every item however old, and collects p
 
 test("keeps every item a source publishes, newest first", async () => {
   const many = Array.from({ length: 40 }, (_, i) => raw(`i${i}`, `Post ${i}`, i));
-  const feed = await buildFeed([collection], registry(many), now);
+  const feed = await buildFeed([collection], registry(many), now, state());
   expect(feed.items).toHaveLength(40);
   expect(feed.items[0]!.title).toBe("Post 0");
 });
@@ -80,7 +82,7 @@ test("merges the same post from RSS and an archive page, keeping the richer copy
       { id: "a-2", title: "An older essay", url: "https://www.example.com/2015/01/01/older", summary: "From the archive", publishedAt: "2015-01-01T12:00:00.000Z" },
     ],
   };
-  const feed = await buildFeed([withArchive], providers, now);
+  const feed = await buildFeed([withArchive], providers, now, state());
   expect(feed.items.map((item) => [item.title, item.kind, item.summary])).toEqual([
     ["Code like a surgeon", "rss", "From RSS"],
     ["An older essay", "rss", "From the archive"],
@@ -92,7 +94,7 @@ test("posts that differ only by query string stay separate", async () => {
     { id: "v1", title: "One", url: "https://www.youtube.com/watch?v=aaa", publishedAt: "2026-11-01T00:00:00.000Z" },
     { id: "v2", title: "Two", url: "https://www.youtube.com/watch?v=bbb", publishedAt: "2026-11-02T00:00:00.000Z" },
   ];
-  const feed = await buildFeed([collection], registry(videos), now);
+  const feed = await buildFeed([collection], registry(videos), now, state());
   expect(feed.items.map((item) => item.title)).toEqual(["Two", "One"]);
 });
 
@@ -107,7 +109,7 @@ test("fetches a source listed by two collections once, merging tags and mute wor
   };
   const mine: Collection = { name: "Mine", mute: ["election"], entries: [{ name: "Ink", tags: ["HCI"], sources: { rss: "https://example.com/feed" } }] };
   const friend: Collection = { name: "Friend", mute: ["crypto"], entries: [{ name: "Ink", tags: ["Design"], sources: { rss: "https://www.example.com/feed/" } }] };
-  const feed = await buildFeed([mine, friend], providers, now);
+  const feed = await buildFeed([mine, friend], providers, now, state());
   expect(calls).toBe(1);
   expect(feed.items).toEqual([expect.objectContaining({ title: "Local-first software", author: "Ink", tags: ["HCI", "Design"] })]);
 });

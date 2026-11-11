@@ -1,4 +1,3 @@
-import { mkdir } from "node:fs/promises";
 import type { FeedItem } from "../src/shared/types";
 import { fetchJson, HttpError } from "./http";
 
@@ -6,7 +5,6 @@ import { fetchJson, HttpError } from "./http";
 // for YouTube. Its API and data are CC BY-NC-SA 4.0, which this personal feed credits in the UI.
 const API = "https://sponsor.ajay.app/api/branding";
 const THUMBNAILS = "https://dearrow-thumb.ajay.app/api/v1/getThumbnail";
-const CACHE_PATH = ".cache/dearrow.json";
 const CONCURRENCY = 6;
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -18,6 +16,7 @@ type BrandingResponse = {
 };
 export type Branding = { title?: string; time?: number };
 type CacheEntry = Branding & { checkedAt: string };
+export type DeArrowCache = Record<string, CacheEntry>;
 
 // DeArrow returns submissions best first; the first is trustworthy when it is locked or not downvoted.
 // A ">" before a word only tells an auto-formatter to leave that word alone, so it is dropped.
@@ -54,10 +53,8 @@ async function lookup(videoId: string): Promise<Branding> {
   }
 }
 
-export async function brandWithDeArrow(items: FeedItem[], now: Date): Promise<FeedItem[]> {
-  const cache: Record<string, CacheEntry> = await Bun.file(CACHE_PATH)
-    .json()
-    .catch(() => ({}));
+// Looks up stale videos into `cache` (updated in place), then applies what the cache holds.
+export async function brandWithDeArrow(items: FeedItem[], now: Date, cache: DeArrowCache): Promise<FeedItem[]> {
   const queue = items.filter((item) => item.videoId && isStale(cache[item.videoId], item.publishedAt, now));
   let failed = 0;
   await Promise.all(
@@ -71,8 +68,6 @@ export async function brandWithDeArrow(items: FeedItem[], now: Date): Promise<Fe
       }
     }),
   );
-  await mkdir(".cache", { recursive: true });
-  await Bun.write(CACHE_PATH, JSON.stringify(cache));
 
   let titles = 0;
   let thumbnails = 0;

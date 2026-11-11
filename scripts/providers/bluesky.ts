@@ -1,4 +1,5 @@
 import { truncate, type RawItem } from "../feed-xml";
+import type { ProviderOptions } from ".";
 import { fetchJson } from "../http";
 import { paged, withFallback } from "./paged";
 import { rss } from "./rss";
@@ -22,12 +23,12 @@ function thumbnail(embed: Embed | undefined): string | undefined {
 
 // A profile URL like https://bsky.app/profile/<handle>. The public AppView pages through every post;
 // replies and reposts are left out so the feed stays this person's own words.
-export function bluesky(url: string): Promise<RawItem[]> {
+export function bluesky(url: string, { depth }: ProviderOptions): Promise<RawItem[]> {
   const profile = url.replace(/\/+$/, "");
   const handle = profile.split("/").at(-1)!;
   return withFallback(
     () =>
-      paged<string>(undefined, async (cursor) => {
+      paged<string>(depth, async (cursor) => {
         const page = await fetchJson<AuthorFeed>(
           `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(handle)}&filter=posts_no_replies&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
         );

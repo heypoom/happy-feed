@@ -1,16 +1,15 @@
-import { mkdir } from "node:fs/promises";
+import type { ProviderOptions } from ".";
 import { htmlToText, truncate, type RawItem } from "../feed-xml";
 import { fetchText } from "../http";
 
 // Some blogs publish only their newest posts in RSS but link every post from an index page.
 // This reads that page for same-site links with a /YYYY/MM/DD/ path, then reads each post page once.
-const CACHE_PATH = ".cache/archive-pages.json";
 const DATED_PATH = /^\/(\d{4})\/(\d{2})\/(\d{2})\/[^/?#]+\/?$/;
 const CONCURRENCY = 6;
 
-type PageMeta = { title: string; summary?: string; image?: string };
+export type PageMeta = { title: string; summary?: string; image?: string };
 
-export async function archive(indexUrl: string): Promise<RawItem[]> {
+export async function archive(indexUrl: string, { state }: ProviderOptions): Promise<RawItem[]> {
   const index = new URL(indexUrl);
   const host = index.hostname.replace(/^www\./, "");
   const links = new Map<string, URL>();
@@ -19,9 +18,7 @@ export async function archive(indexUrl: string): Promise<RawItem[]> {
     if (url.hostname.replace(/^www\./, "") === host && DATED_PATH.test(url.pathname)) links.set(url.pathname, url);
   }
 
-  const cache: Record<string, PageMeta> = await Bun.file(CACHE_PATH)
-    .json()
-    .catch(() => ({}));
+  const cache = state.archivePages;
   const queue = [...links.values()];
   const items: RawItem[] = [];
   await Promise.all(
@@ -35,9 +32,6 @@ export async function archive(indexUrl: string): Promise<RawItem[]> {
       }
     }),
   );
-
-  await mkdir(".cache", { recursive: true });
-  await Bun.write(CACHE_PATH, JSON.stringify(cache, null, 2));
   return items;
 }
 

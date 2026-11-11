@@ -1,3 +1,4 @@
+import type { Depth } from ".";
 import type { RawItem } from "../feed-xml";
 
 // Archives page backwards until they run out. The cap only guards against an API that never ends.
@@ -6,12 +7,12 @@ const MAX_PAGES = 60;
 // A failure on the first page throws, so the caller can fall back to RSS. A failure later on
 // keeps the pages already fetched: they hold the newest posts, which is more than RSS has.
 export async function paged<Cursor>(
-  first: Cursor | undefined,
+  depth: Depth,
   fetchPage: (cursor: Cursor | undefined) => Promise<{ items: RawItem[]; next: Cursor | undefined }>,
 ): Promise<RawItem[]> {
   const items: RawItem[] = [];
-  let cursor = first;
-  for (let page = 0; page < MAX_PAGES; page++) {
+  let cursor: Cursor | undefined;
+  for (let page = 0; page < (depth === "head" ? 1 : MAX_PAGES); page++) {
     let result: Awaited<ReturnType<typeof fetchPage>>;
     try {
       result = await fetchPage(cursor);
