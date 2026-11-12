@@ -24,6 +24,15 @@ A personal, calm feed for one owner (Poom) who is escaping doomscrolling. Read f
 
 The owner writes `Name URL (Tag)`.
 
+When suggesting or vetting sources, leave out anyone whose output is mostly:
+
+- ragebait or outrage-driven takes,
+- clickbait titles or thumbnails,
+- AI psychosis content,
+- content about using coding agents (tool walkthroughs, agent workflows, "how I ship with agents").
+
+Playful or thoughtful writing about LLMs and AI is welcome. Only content purely about using agents is excluded. Politics isn't excluded on its own. Flag a borderline pick to the owner rather than silently dropping it.
+
 1. Append one line per entry at the end of `collection/phoomparin.json`, keeping the name exactly as written. One person with several sources is one entry with several keys.
 2. Resolve the URL to a working source key: `youtube` for `@handle`; a Substack profile (`substack.com/@x`) is not a feed, so use the publication domain; X has no free route, so follow the person on `bluesky` or `mastodon` instead; a blog whose RSS holds only recent posts gets an `archive` index page too.
 3. Done when `bun run refresh -- --local --author "<Name>"` lists the new author with a nonzero count and no failure. After the owner deploys, the next hourly run picks the source up; `bun run refresh -- --author "<Name>"` publishes it right away.
