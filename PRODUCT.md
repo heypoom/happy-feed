@@ -36,6 +36,8 @@ There is no ranking for engagement. Only hand-picked sources are shown, plus a m
 - Stack: Bun, TypeScript, Vite, vanilla TS client, static hosting on a Cloudflare Worker (deployed with the `cf` CLI).
 - Two feeds. **New** is this week, newest first, with a daily hand woven in: one older post after every five new ones, at most eight, one per source, sources that were quiet this week first. Each says "From Aug 2022". **Anytime** ignores newness: a daily stack of 24 posts from every year, with sources taking turns so a 2,000-video channel weighs the same as a 12-post blog. It ends at "That's today's stack"; "Keep digging" deals the next one only on a tap.
 - Dealing is by the device's local day and a hash of each post, so a reload deals the same cards and a new hand arrives at midnight. Nothing reshuffles on reload. Dealt posts are remembered (in the library, synced with the sync words) and sit out for 90 days once their day has passed. Favourites and archived posts are never dealt.
+- Pull to refresh (touch screens) checks for a newer feed; in Anytime it also deals the next stack, exactly as "Keep digging" does.
+- Older YouTube videos in a hand or a stack get their DeArrow title and thumbnail on demand: the client asks the Worker (`/dearrow/<videoId>`), which keeps one answer per video in R2 and asks DeArrow at most once a month per video. Builds only look up the last 60 days.
 
 ## Brand Commitments
 

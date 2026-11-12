@@ -287,6 +287,11 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 - Two words under the masthead row in the masthead's voice (Bricolage 750, 1.3rem, -0.025em), 22px apart, each a 44px tap target. The selected one is in full ink with a 3px accent underline that draws in from the centre; the other is muted and inks on hover. It scrolls away with the masthead, so the sticky bar stays one row. Neither is selected on a shelf.
 - In the URL as `?feed=anytime` (New is the default), and `&stack=N` for a stack dug past the first.
 
+### Pull to Refresh (touch screens)
+- From the very top of the page, pulling slides the masthead, bar and feed down with the finger (half the finger's travel, up to 120px), and the sprout drops into the gap on a 46px surface disc beside a surface pill label. Its eyes open and its leaves wave as the pull nears the 72px trigger; it hops while working (still with reduced motion), then the label says what happened for about a second before everything slides back.
+- New: "Pull to check for new posts" / "Let go to check" / "Checking…", then "Up to date" or "3 new posts". Anytime: "Pull for another stack" / "Let go to deal" / "Dealing…", then "Stack 2" (the same as Keep digging, so Back returns) or "That's every stack for today".
+- The browser's own pull-to-reload is off on touch screens (`overscroll-behavior-y: none`), since a reload deals the same cards.
+
 ### Format Tabs
 - **Character:** a single pill track that answers "watch or read?".
 - **Shape:** a pill group on the surface with 4px inner padding. Each tab is a 40px pill with an icon, a label and a tabular count.

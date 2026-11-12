@@ -86,11 +86,23 @@ let syncAgain = false;
 let pushTimer: ReturnType<typeof setTimeout> | undefined;
 const SYNC_EVERY_MS = 60_000;
 const syncSheet = document.querySelector<HTMLDialogElement>(".sync-sheet")!;
+const pull = document.querySelector<HTMLElement>(".pull")!;
+const pullLabel = pull.querySelector<HTMLElement>(".pull-label")!;
+const pullStatus = document.querySelector<HTMLElement>(".pull-status")!;
+const PULL_TRIGGER = 72;
+const PULL_MAX = 120;
 let rows: Row[] = [];
 let rendered = 0;
 let dealtAs = new Map<string, DealtAs>();
+// Calmer titles and frames for older dealt videos, fetched from the Worker as their cards show
+// (builds only brand the last 60 days). `null` marks a video with nothing better, or a failed lookup.
+type Branding = { title?: string; thumbnail?: string };
+const brandings = new Map<string, Branding | null>();
+const BUILD_BRANDS_MS = 60 * 86_400_000;
 // The recent chunk is on screen and older ones are still loading, so the end of the list is not the end.
 let archivePending = false;
+// Bumped when a pull replaces the feed, so an archive still loading for the old one is dropped.
+let feedVersion = 0;
 
 const observer = new IntersectionObserver(
   ([entry]) => {
@@ -223,6 +235,7 @@ railLayout.addEventListener("change", () => {
   controls.classList.remove("tucked");
 });
 tuckOnScroll();
+pullToRefresh();
 
 void start();
 
@@ -268,7 +281,112 @@ async function start(): Promise<void> {
   });
   render();
   observer.observe(sentinel);
-  if (archivePending) void loadArchive().then(addArchive);
+  const version = feedVersion;
+  if (archivePending) void loadArchive().then((items) => version === feedVersion && addArchive(items));
+}
+
+// Fetches the manifest again and, when the feed was republished (or the archive never finished
+// loading), every chunk. Chunks are named by content, so unchanged years come from the cache.
+async function reloadFeed(): Promise<boolean> {
+  const { chunks, ...manifest } = await getJson<Manifest>("feed/manifest.json", { cache: "no-cache" });
+  if (manifest.generatedAt === feed.generatedAt && !archivePending) return false;
+  const loaded = await Promise.allSettled(chunks.map((chunk) => getJson<FeedItem[]>(chunk.path)));
+  feedVersion++;
+  archivePending = false;
+  feed = { ...manifest, items: loaded.flatMap((result) => (result.status === "fulfilled" ? result.value : [])) };
+  hues = assignHues(feed.tags);
+  return true;
+}
+
+// Every pull checks for a newer feed. In Anytime it also deals the next stack, as "Keep digging" does:
+// it lands in the URL, so Back returns to the stack before.
+async function pullRefresh(): Promise<string> {
+  const before = new Set(feed.items.map((item) => item.id));
+  let added = 0;
+  try {
+    if (await reloadFeed()) added = feed.items.filter((item) => !before.has(item.id)).length;
+  } catch {
+    return "Couldn't check just now";
+  }
+  const filters = readFilters();
+  if (filters.view === "feed" && filters.mode === "anytime") {
+    const end = rowsFor(filters, viewItems(filters)).find((row) => row.type === "stack-end");
+    if (end?.type === "stack-end" && end.more) {
+      writeFilters({ ...filters, stack: filters.stack + 1 });
+      return `Stack ${filters.stack + 1}`;
+    }
+    render();
+    return "That's every stack for today";
+  }
+  if (added > 0 || before.size !== feed.items.length) render();
+  return added > 0 ? `${added} new post${added === 1 ? "" : "s"}` : "Up to date";
+}
+
+const PULL_COPY: Record<Mode, { pull: string; release: string; busy: string }> = {
+  new: { pull: "Pull to check for new posts", release: "Let go to check", busy: "Checking…" },
+  anytime: { pull: "Pull for another stack", release: "Let go to deal", busy: "Dealing…" },
+};
+
+// Touch only, from the very top of the page. The browser's own pull-to-reload is switched off in CSS,
+// since a reload deals the same cards and this can do more.
+function pullToRefresh(): void {
+  let startY: number | undefined;
+  let distance = 0;
+  let busy = false;
+  const set = (px: number) => {
+    root.style.setProperty("--pull", `${px}px`);
+    root.style.setProperty("--progress", String(Math.min(1, px / PULL_TRIGGER)));
+    if (px > 0) root.classList.add("pulling");
+    else if (!root.classList.contains("pull-settling")) root.classList.remove("pulling");
+  };
+  // Once the page has slid back, drop the transforms.
+  addEventListener("transitionend", (event) => {
+    if (event.target === pull && root.style.getPropertyValue("--pull") === "0px") root.classList.remove("pulling", "pull-settling");
+  });
+  const copy = () => {
+    const filters = readFilters();
+    return PULL_COPY[filters.view === "feed" ? filters.mode : "new"];
+  };
+  addEventListener(
+    "touchstart",
+    (event: TouchEvent) => {
+      if (busy || !feed || scrollY > 0 || event.touches.length !== 1 || document.querySelector("dialog[open]")) return;
+      startY = event.touches[0]!.clientY;
+      distance = 0;
+      root.classList.remove("pull-settling");
+    },
+    { passive: true },
+  );
+  addEventListener(
+    "touchmove",
+    (event: TouchEvent) => {
+      if (startY === undefined) return;
+      const dy = event.touches[0]!.clientY - startY;
+      distance = dy > 0 && scrollY <= 0 ? Math.min(PULL_MAX, dy * 0.5) : 0;
+      set(distance);
+      pullLabel.textContent = distance >= PULL_TRIGGER ? copy().release : copy().pull;
+    },
+    { passive: true },
+  );
+  const end = async () => {
+    if (startY === undefined) return;
+    startY = undefined;
+    root.classList.add("pull-settling");
+    if (distance < PULL_TRIGGER) return set(0);
+    busy = true;
+    set(PULL_TRIGGER);
+    pull.classList.add("busy");
+    pullLabel.textContent = copy().busy;
+    const message = await pullRefresh();
+    pull.classList.remove("busy");
+    pullLabel.textContent = message;
+    pullStatus.textContent = message;
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    set(0);
+    busy = false;
+  };
+  addEventListener("touchend", () => void end());
+  addEventListener("touchcancel", () => void end());
 }
 
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -924,13 +1042,46 @@ function tagList(item: FeedItem): HTMLElement[] {
   return item.tags.length > 0 ? [h("ul", { className: "tags" }, item.tags.map((tag) => h("li", {}, [tag])))] : [];
 }
 
-function renderCard(item: FeedItem): HTMLElement {
+function renderCard(raw: FeedItem): HTMLElement {
+  const item = branded(raw);
   const format = FORMAT_OF[item.kind];
   const card =
     format === "watch" && item.image ? renderWatch(item) : format === "post" ? renderPost(item) : renderRead(item);
   card.dataset.hue = hueFor(item);
   card.dataset.id = item.id;
+  if (needsBranding(item)) void fetchBranding(raw);
   return card;
+}
+
+function branded(item: FeedItem): FeedItem {
+  const branding = item.videoId ? brandings.get(item.videoId) : undefined;
+  if (!branding) return item;
+  return {
+    ...item,
+    ...(branding.title && branding.title !== item.title ? { title: branding.title, originalTitle: item.title } : {}),
+    ...(branding.thumbnail ? { thumbnail: branding.thumbnail } : {}),
+  };
+}
+
+const needsBranding = (item: FeedItem) =>
+  item.videoId !== undefined &&
+  dealtAs.has(item.id) &&
+  !brandings.has(item.videoId) &&
+  !item.originalTitle &&
+  !item.thumbnail &&
+  Date.now() - Date.parse(item.publishedAt) > BUILD_BRANDS_MS;
+
+async function fetchBranding(item: FeedItem): Promise<void> {
+  const videoId = item.videoId!;
+  brandings.set(videoId, null);
+  try {
+    const branding = await getJson<Branding>(`dearrow/${videoId}`);
+    if (!branding.title && !branding.thumbnail) return;
+    brandings.set(videoId, branding);
+    const card = list.querySelector<HTMLElement>(`.card[data-id="${CSS.escape(item.id)}"]`);
+    // A video already playing keeps playing under its original title.
+    if (card && !card.querySelector("iframe")) card.replaceWith(renderCard(item));
+  } catch {}
 }
 
 function actions(item: FeedItem, after?: (shelf: Shelf) => void): HTMLElement {

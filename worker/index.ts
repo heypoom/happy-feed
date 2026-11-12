@@ -1,4 +1,5 @@
 import { parseCollection } from "../scripts/collection";
+import { brandingOnDemand, VIDEO_ID } from "../scripts/dearrow";
 import { createProviders } from "../scripts/providers";
 import { MANIFEST_PATH, publish } from "../scripts/publish";
 import { mergeSources, refresh } from "../scripts/sources";
@@ -39,6 +40,7 @@ export default {
   async fetch(request, env) {
     const key = new URL(request.url).pathname.slice(1);
     if (key.startsWith(SYNC_PATH)) return handleSync(request, env.FEED, key.slice(SYNC_PATH.length));
+    if (key.startsWith(DEARROW_PATH)) return dearrow(key.slice(DEARROW_PATH.length), env.FEED);
     if (!key.startsWith("feed/")) return new Response("Not found", { status: 404 });
     const object = await env.FEED.get(key, { onlyIf: request.headers });
     if (!object) return new Response("Not found", { status: 404 });
@@ -50,6 +52,21 @@ export default {
     return "body" in object ? new Response(object.body, { headers }) : new Response(null, { status: 304, headers });
   },
 } satisfies ExportedHandler<Env>;
+
+const DEARROW_PATH = "dearrow/";
+
+// GET /dearrow/<videoId>: calmer title and thumbnail for one older video, looked up when its card shows.
+async function dearrow(videoId: string, bucket: R2Bucket): Promise<Response> {
+  if (!VIDEO_ID.test(videoId)) return new Response("Not found", { status: 404 });
+  try {
+    const branding = await brandingOnDemand(videoId, r2Store(bucket), new Date());
+    return new Response(JSON.stringify(branding), {
+      headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=86400" },
+    });
+  } catch {
+    return new Response("DeArrow is unavailable", { status: 502 });
+  }
+}
 
 function r2Store(bucket: R2Bucket): Store {
   return {

@@ -2342,3 +2342,97 @@ html:has(.viewer[open]) {
     transition: none;
   }
 }
+
+/* Pull to refresh (touch screens). The sprout drops in on a surface disc, opens its eyes and waves as
+   the pull nears the trigger, hops while it works, then says what happened. */
+@media (pointer: coarse) {
+  html {
+    overscroll-behavior-y: none;
+  }
+}
+
+.pull {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: env(safe-area-inset-top);
+  transform: translate(-50%, calc(var(--pull, 0px) - 100% - 10px));
+  pointer-events: none;
+}
+
+/* The page follows the finger, so the sprout appears in the gap it opens rather than over the masthead.
+   Only while pulling: a transform makes a containing block, which nothing should carry at rest. */
+html.pulling .masthead,
+html.pulling .controls,
+html.pulling main {
+  transform: translateY(var(--pull, 0px));
+}
+
+html.pull-settling .pull,
+html.pull-settling .masthead,
+html.pull-settling .controls,
+html.pull-settling main {
+  transition: transform 0.45s var(--ease-out);
+}
+
+/* The bar's own tuck transition would make it trail the finger. */
+html.pulling:not(.pull-settling) .controls {
+  transition: none;
+}
+
+.pull .sprout {
+  width: 46px;
+  height: 46px;
+  padding: 6px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  --awake: var(--progress, 0);
+  --wave: calc(var(--progress, 0) * 16deg);
+}
+
+.pull-label {
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.pull-label:empty {
+  visibility: hidden;
+}
+
+.pull.busy .sprout {
+  animation: hop 1s var(--ease-out) infinite;
+}
+
+.pull-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pull.busy .sprout {
+    animation: none;
+  }
+
+  html.pull-settling .pull,
+  html.pull-settling .masthead,
+  html.pull-settling .controls,
+  html.pull-settling main {
+    transition-duration: 0.01s;
+  }
+}

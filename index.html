@@ -44,6 +44,12 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <!-- Pull to refresh on touch screens: the sprout drops in and wakes up as you pull. -->
+    <div class="pull" aria-hidden="true">
+      <svg class="sprout" viewBox="0 0 64 64"><use href="#mascot" /></svg>
+      <span class="pull-label"></span>
+    </div>
+    <p class="pull-status" role="status"></p>
     <aside class="rail">
     <header class="masthead">
       <div class="masthead-row">

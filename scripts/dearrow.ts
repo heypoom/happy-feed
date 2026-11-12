@@ -1,5 +1,6 @@
 import type { FeedItem } from "../src/shared/types";
 import { fetchJson, HttpError } from "./http";
+import type { Store } from "./store";
 
 // DeArrow (https://dearrow.ajay.app) crowdsources accurate, non-sensational titles and thumbnails
 // for YouTube. Its API and data are CC BY-NC-SA 4.0, which this personal feed credits in the UI.
@@ -95,4 +96,30 @@ export async function brandWithDeArrow(items: FeedItem[], now: Date, cache: DeAr
   });
   console.log(`DeArrow: ${titles} titles, ${thumbnails} thumbnails${failed ? `, ${failed} lookups failed (kept as is)` : ""}`);
   return branded;
+}
+
+// Older videos are branded when a card is actually shown: the client asks the Worker, which keeps one
+// answer per video in R2 and asks DeArrow at most once a month per video.
+const ON_DEMAND_PREFIX = "state/dearrow/";
+const RECHECK_MS = 30 * DAY;
+export const VIDEO_ID = /^[\w-]{11}$/;
+
+export type BrandingView = { title?: string; thumbnail?: string };
+
+export async function brandingOnDemand(videoId: string, store: Store, now: Date): Promise<BrandingView> {
+  const key = `${ON_DEMAND_PREFIX}${videoId}.json`;
+  let entry = await store.get<CacheEntry>(key);
+  if (!entry || now.getTime() - Date.parse(entry.checkedAt) > RECHECK_MS) {
+    try {
+      entry = { ...(await lookup(videoId)), checkedAt: now.toISOString() };
+      await store.put(key, entry);
+    } catch (error) {
+      // DeArrow is down: an old answer is still a good answer.
+      if (!entry) throw error;
+    }
+  }
+  return {
+    ...(entry.title ? { title: entry.title } : {}),
+    ...(entry.time !== undefined ? { thumbnail: thumbnailUrl(videoId, entry.time) } : {}),
+  };
 }

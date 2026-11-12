@@ -1,6 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import type { FeedItem } from "../src/shared/types";
-import { brandWithDeArrow, chooseBranding, thumbnailUrl, type DeArrowCache } from "./dearrow";
+import { brandingOnDemand, brandWithDeArrow, chooseBranding, thumbnailUrl, type DeArrowCache } from "./dearrow";
+import { MemoryStore } from "./store";
 
 const sub = <T extends object>(extra: T) => ({ original: false, votes: 0, locked: false, ...extra });
 
@@ -46,4 +47,30 @@ test("a build only asks DeArrow about recent videos, and still applies what it a
   spy.mockRestore();
   expect(asked).toEqual(["fresh"]);
   expect(items.find((item) => item.videoId === "known")?.title).toBe("A calmer title");
+});
+
+test("an older video is looked up once, then answered from the store until the month is out", async () => {
+  const store = new MemoryStore();
+  let asked = 0;
+  const spy = spyOn(globalThis, "fetch").mockImplementation((async () => {
+    asked++;
+    return new Response(JSON.stringify({ titles: [{ title: "How noise makes terrain", original: false, votes: 3, locked: false }], thumbnails: [{ timestamp: 12, original: false, votes: 1, locked: false }] }));
+  }) as unknown as typeof fetch);
+  const day = new Date("2026-11-12T00:00:00Z");
+  const first = await brandingOnDemand("abcdefghijk", store, day);
+  const again = await brandingOnDemand("abcdefghijk", store, new Date("2026-11-20T00:00:00Z"));
+  await brandingOnDemand("abcdefghijk", store, new Date("2026-12-20T00:00:00Z"));
+  spy.mockRestore();
+  expect(first).toEqual({ title: "How noise makes terrain", thumbnail: thumbnailUrl("abcdefghijk", 12) });
+  expect(again).toEqual(first);
+  expect(asked).toBe(2);
+});
+
+test("when DeArrow is down, a stale answer is still used and a missing one fails", async () => {
+  const store = new MemoryStore();
+  await store.put("state/dearrow/abcdefghijk.json", { title: "Kept", checkedAt: "2026-01-01T00:00:00Z" });
+  const spy = spyOn(globalThis, "fetch").mockImplementation((async () => new Response("down", { status: 503 })) as unknown as typeof fetch);
+  expect(await brandingOnDemand("abcdefghijk", store, new Date("2026-11-12T00:00:00Z"))).toEqual({ title: "Kept" });
+  await expect(brandingOnDemand("zzzzzzzzzzz", store, new Date("2026-11-12T00:00:00Z"))).rejects.toThrow();
+  spy.mockRestore();
 });
