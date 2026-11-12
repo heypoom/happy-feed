@@ -157,3 +157,21 @@ test("a Bluesky post opens in the viewer, falls back to the feed text, and Esc c
   await expect(viewer).toBeHidden();
   await expect(cards(page)).toHaveCount(4);
 });
+
+test("the Clear chip keeps its accent fill, so its label stays legible", async ({ page }) => {
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto("/?tags=HCI");
+    const clear = page.locator(".clear-chip").filter({ visible: true });
+    await expect(clear).toHaveCount(1);
+    const { bg, fg, accent } = await clear.evaluate((el) => {
+      const probe = document.body.appendChild(document.createElement("i"));
+      probe.style.color = "var(--accent)";
+      const accent = getComputedStyle(probe).color;
+      probe.remove();
+      return { bg: getComputedStyle(el).backgroundColor, fg: getComputedStyle(el).color, accent };
+    });
+    expect(bg).toBe(accent);
+    expect(fg).not.toBe(bg);
+  }
+});

@@ -868,7 +868,7 @@ html:has(.filter-sheet[open]) {
 }
 
 /* Inside the sheet the chips sit on the surface, so they take the ground to stay distinct. */
-.filter-sheet .chip:not([aria-pressed="true"]),
+.filter-sheet .chip:not([aria-pressed="true"], .clear-chip),
 .filter-sheet .people-find {
   background: var(--ground);
 }
@@ -2222,7 +2222,7 @@ html:has(.viewer[open]) {
     display: contents;
   }
 
-  .filter-sheet .chip:not([aria-pressed="true"]),
+  .filter-sheet .chip:not([aria-pressed="true"], .clear-chip),
   .filter-sheet .people-find {
     background: var(--surface);
   }
