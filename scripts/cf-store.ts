@@ -6,6 +6,8 @@ import type { Store, StoredObject } from "./store";
 // The bucket bound as FEED in cloudflare.config.ts.
 export const BUCKET = "happy-feed";
 const CLI_CONCURRENCY = 8;
+// Healthy calls take one to four seconds; a minute leaves room for a big put on a slow connection.
+const CLI_TIMEOUT_MS = 60_000;
 
 // R2 through the cf CLI, which carries the owner's login (`npx cf auth login`) or, with --local, the
 // state the Vite dev server reads (.cloudflare/state). Objects written or read in this run are kept
@@ -14,10 +16,13 @@ export class CfR2Store implements Store {
   private readonly known = new Map<string, string>();
   private running = 0;
   private readonly waiting: (() => void)[] = [];
+  private readonly calls = new Set<{ call: string; since: number }>();
 
   constructor(
     private readonly bucket: string,
     private readonly local: boolean,
+    private readonly cli: string[] = ["node_modules/.bin/cf"],
+    private readonly timeoutMs = CLI_TIMEOUT_MS,
   ) {}
 
   async get<T>(key: string): Promise<T | undefined> {
@@ -57,6 +62,11 @@ export class CfR2Store implements Store {
     this.known.delete(key);
   }
 
+  // The CLI calls running now, oldest first, for a progress line that shows what a slow run waits on.
+  inFlight(): { call: string; since: number }[] {
+    return [...this.calls];
+  }
+
   private async cf(args: string[]): Promise<string> {
     return (await this.run(args)).stdout;
   }
@@ -65,14 +75,41 @@ export class CfR2Store implements Store {
     while (this.running >= CLI_CONCURRENCY) await new Promise<void>((resolve) => this.waiting.push(resolve));
     this.running++;
     try {
-      const command = ["node_modules/.bin/cf", "r2", "objects", ...args, "--bucket-name", this.bucket, ...(this.local ? ["--local"] : [])];
-      const child = Bun.spawn(command, { stdout: "pipe", stderr: "pipe" });
-      const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
-      if (code !== 0) throw new Error(`cf r2 objects ${args.slice(0, 2).join(" ")} failed: ${stderr.trim()}`);
-      return { stdout, stderr };
+      // A cf call now and then never exits (each --local call boots its own local runtime), so a stuck
+      // call is killed and tried once more, which has always gone through.
+      try {
+        return await this.spawn(args);
+      } catch (error) {
+        if (!(error instanceof CliTimeout)) throw error;
+        console.warn(`  ${error.message}, trying again`);
+        return await this.spawn(args);
+      }
     } finally {
       this.running--;
       this.waiting.shift()?.();
     }
   }
+
+  private async spawn(args: string[]): Promise<{ stdout: string; stderr: string }> {
+    const command = [...this.cli, "r2", "objects", ...args, "--bucket-name", this.bucket, ...(this.local ? ["--local"] : [])];
+    const child = Bun.spawn(command, { stdout: "pipe", stderr: "pipe" });
+    const call = { call: `cf r2 objects ${args.slice(0, 2).join(" ")}`, since: Date.now() };
+    this.calls.add(call);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, this.timeoutMs);
+    try {
+      const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+      if (timedOut) throw new CliTimeout(`${call.call} timed out after ${this.timeoutMs / 1000}s`);
+      if (code !== 0) throw new Error(`${call.call} failed: ${stderr.trim()}`);
+      return { stdout, stderr };
+    } finally {
+      clearTimeout(timer);
+      this.calls.delete(call);
+    }
+  }
 }
+
+class CliTimeout extends Error {}

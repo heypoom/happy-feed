@@ -62,7 +62,9 @@ function sourceKey(id: string): SourceKey {
   return `${slug}-${(hash >>> 0).toString(16).padStart(8, "0")}` as SourceKey;
 }
 
-type Run = { store: Store; providers: ProviderRegistry; now: Date; depth?: Depth };
+// `progress` hears about each source as it starts and finishes, so a long run can show what it is on.
+type Progress = { started(source: Source): void; finished(source: Source, record: SourceRecord): void };
+type Run = { store: Store; providers: ProviderRegistry; now: Date; depth?: Depth; progress?: Progress };
 
 // Fetches every source (eight at a time) and stores each one's record as it finishes. With a deadline,
 // sources not started by then are left as stored, so a slow network cannot keep the run from publishing.
@@ -77,7 +79,10 @@ export async function refresh(sources: Source[], run: Run & { deadline?: number 
   const workers = Promise.all(
     Array.from({ length: CONCURRENCY }, async () => {
       for (let source = queue.shift(); source && Date.now() < deadline; source = queue.shift()) {
-        records.push(await refreshSource(source, run, state));
+        run.progress?.started(source);
+        const record = await refreshSource(source, run, state);
+        run.progress?.finished(source, record);
+        records.push(record);
       }
     }),
   );
