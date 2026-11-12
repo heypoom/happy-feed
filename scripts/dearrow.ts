@@ -53,9 +53,16 @@ async function lookup(videoId: string): Promise<Branding> {
   }
 }
 
-// Looks up stale videos into `cache` (updated in place), then applies what the cache holds.
+// DeArrow is a volunteer service, so a build only asks about recent videos. The back catalogue is looked
+// up when a card is actually shown, not in bulk.
+const LOOKUP_WINDOW_MS = 60 * DAY;
+
+// Looks up stale recent videos into `cache` (updated in place), then applies what the cache holds.
 export async function brandWithDeArrow(items: FeedItem[], now: Date, cache: DeArrowCache): Promise<FeedItem[]> {
-  const queue = items.filter((item) => item.videoId && isStale(cache[item.videoId], item.publishedAt, now));
+  const since = now.getTime() - LOOKUP_WINDOW_MS;
+  const queue = items.filter(
+    (item) => item.videoId && Date.parse(item.publishedAt) >= since && isStale(cache[item.videoId], item.publishedAt, now),
+  );
   let failed = 0;
   await Promise.all(
     Array.from({ length: CONCURRENCY }, async () => {

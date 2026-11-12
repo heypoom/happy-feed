@@ -296,3 +296,12 @@ test("an unreferenced chunk is deleted once it is more than two days old", async
   await publish(sources, { store, now: clock.now });
   expect(await chunkKeys()).toEqual([second]);
 });
+
+test("Shorts stored before they were filtered out never reach the feed", async () => {
+  const videos = [
+    { id: "v1", title: "A tutorial", url: "https://www.youtube.com/watch?v=aaa", publishedAt: "2026-11-01T00:00:00.000Z" },
+    { id: "v2", title: "A short", url: "https://www.youtube.com/shorts/bbb", publishedAt: "2026-11-02T00:00:00.000Z" },
+  ];
+  const feed = await build([rssOnly], registry(videos));
+  expect(feed.items.map((item) => item.title)).toEqual(["A tutorial"]);
+});

@@ -1,6 +1,7 @@
 import { SOURCE_KINDS, type Chunk, type FeedError, type FeedItem, type Manifest } from "../src/shared/types";
 import { byNewest, dedupe } from "./aggregate";
 import { brandWithDeArrow, type DeArrowCache } from "./dearrow";
+import { isShort } from "./providers/youtube";
 import { recordPath, type Source, type SourceRecord } from "./sources";
 import type { Store } from "./store";
 
@@ -16,7 +17,9 @@ const KEEP_UNREFERENCED_MS = 2 * 24 * 60 * 60 * 1000;
 export async function publish(sources: Source[], { store, now }: { store: Store; now: Date }): Promise<{ manifest: Manifest; changed: string[] }> {
   const records = (await Promise.all(sources.map((source) => store.get<SourceRecord>(recordPath(source.key))))).filter((r) => r !== undefined);
   const dearrow = (await store.get<DeArrowCache>(DEARROW_PATH)) ?? {};
-  const items = await brandWithDeArrow(dedupe(records.flatMap((record) => record.items)).sort(byNewest), now, dearrow);
+  // No short-form video: Shorts fetched before the provider dropped them are still in the records.
+  const kept = dedupe(records.flatMap((record) => record.items)).filter((item) => !isShort(item.url));
+  const items = await brandWithDeArrow(kept.sort(byNewest), now, dearrow);
   await store.put(DEARROW_PATH, dearrow);
 
   const chunks: Chunk[] = await Promise.all(

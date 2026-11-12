@@ -24,7 +24,7 @@ export default {
     const now = new Date(controller.scheduledTime);
     const store = r2Store(env.FEED);
     const depth = isWeeklyFullRun(now) ? "full" : undefined;
-    const records = await refresh(SOURCES, { store, providers: createProviders({}), now, depth, deadline: Date.now() + REFRESH_BUDGET_MS });
+    const records = await refresh(SOURCES, { store, providers: createProviders({ YOUTUBE_API_KEY: env.YOUTUBE_API_KEY }), now, depth, deadline: Date.now() + REFRESH_BUDGET_MS });
     const { manifest, changed } = await publish(SOURCES, { store, now });
     const failed = records.filter((record) => !record.status.ok);
     const items = manifest.chunks.reduce((sum, chunk) => sum + chunk.count, 0);

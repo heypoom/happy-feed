@@ -24,7 +24,7 @@ export type ProviderRegistry = Record<SourceKind, Provider> & { archive: Provide
 
 export function createProviders(env: Record<string, string | undefined>): ProviderRegistry {
   return {
-    youtube,
+    youtube: youtube(env.YOUTUBE_API_KEY),
     rss,
     substack,
     website,

@@ -42,10 +42,10 @@ function retryAfterMs(header: string | null): number | undefined {
   return Number.isFinite(ms) ? Math.min(Math.max(ms, 0), MAX_RETRY_AFTER_MS) : undefined;
 }
 
-async function request(url: string, accept: string): Promise<Response> {
+async function request(url: string, accept: string, extra: Record<string, string> = {}): Promise<Response> {
   return withRetry(async () => {
     const response = await fetch(url, {
-      headers: { "user-agent": USER_AGENT, "accept-language": "en", accept },
+      headers: { "user-agent": USER_AGENT, "accept-language": "en", accept, ...extra },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!response.ok) throw new HttpError(response.status, url, retryAfterMs(response.headers.get("retry-after")));
@@ -57,6 +57,7 @@ export async function fetchText(url: string): Promise<string> {
   return (await request(url, "*/*")).text();
 }
 
-export async function fetchJson<T = unknown>(url: string): Promise<T> {
-  return (await (await request(url, "application/json")).json()) as T;
+// Credentials go in `headers`, never the URL: an HttpError's message carries the URL into logs and the manifest.
+export async function fetchJson<T = unknown>(url: string, headers?: Record<string, string>): Promise<T> {
+  return (await (await request(url, "application/json", headers)).json()) as T;
 }

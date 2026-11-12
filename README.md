@@ -56,7 +56,7 @@ An entry needs at least one source. Every post a source publishes is kept, with 
 
 | Key | Reads | Depth |
 | --- | --- | --- |
-| `youtube` | The channel's feed (`@handle` or `/channel/UC…`) | Latest 15 videos |
+| `youtube` | The channel's feed (`@handle` or `/channel/UC…`) | Every long-form video with `YOUTUBE_API_KEY`, else the latest 15. Never Shorts |
 | `rss` | RSS or Atom | Whatever the feed holds |
 | `website` | The feed a page advertises | Same |
 | `archive` | An index page linking every post (`/YYYY/MM/DD/…`), for blogs whose RSS holds only recent posts. Pair it with `rss`. | Every linked post |
@@ -66,7 +66,9 @@ An entry needs at least one source. Every post a source publishes is kept, with 
 
 Every request is retried once after a timeout, dropped connection or 5xx, and up to three times after a 429, honouring `Retry-After`. API sources fall back to RSS if the first archive page fails; a later page failing keeps the posts already fetched. A source that still fails keeps the posts it had and lands in the manifest's `errors`, and the rest publishes. `twitter` and `facebook` keys exist but need a self-hosted RSS bridge (`RSS_BRIDGE`, `RSS_BRIDGE_FACEBOOK`); no free route to X exists.
 
-DeArrow lookups are cached in `state/dearrow.json` in the bucket: new videos are re-checked every 6 hours, older ones every few days to a month. DeArrow's API and data are [CC BY-NC-SA 4.0](https://github.com/ajayyy/SponsorBlock/wiki/Database-and-API-License), credited at the end of the feed.
+DeArrow lookups are cached in `state/dearrow.json` in the bucket: new videos are re-checked every 6 hours, older ones every few days to a month. DeArrow is a volunteer service, so a build only looks up videos from the last 60 days; older ones keep any branding already cached.
+
+YouTube channel feeds hold only the latest 15 uploads. With a `YOUTUBE_API_KEY`, the weekly full run (and `bun run refresh -- --kind youtube --full`) lists each channel's whole long-form back catalogue through the Data API, about one quota unit per 50 videos out of 10,000 a day. Hourly runs stay on the free feed. Shorts are dropped everywhere: no short-form video in the feed. DeArrow's API and data are [CC BY-NC-SA 4.0](https://github.com/ajayyy/SponsorBlock/wiki/Database-and-API-License), credited at the end of the feed.
 
 ## How the feed stays fresh
 
@@ -86,6 +88,7 @@ To refresh from your machine instead (Substack rate-limits Cloudflare's network)
 ## Deploy
 
 - **From your machine:** `bun run deploy` builds the site and the Worker and runs `cf deploy`. Needs Node.js 22.18+ and `npx cf auth login`. Deploys change code only; the feed itself refreshes on the cron.
+- **YouTube API key:** create a key for "YouTube Data API v3" in Google Cloud (APIs & Services → Credentials), restricted to that API. Set it on the Worker with `npx wrangler secret put YOUTUBE_API_KEY --name happy-feed` before the next deploy, since `cloudflare.config.ts` declares it. For laptop refreshes, put `YOUTUBE_API_KEY=…` in `.env` (ignored by git; Bun loads it).
 - **From GitHub:** `.github/workflows/deploy.yml` tests and deploys on every push to `main` and on demand. It needs a `CLOUDFLARE_API_TOKEN` repository secret made from the "Edit Cloudflare Workers" token template.
 
 ## Agent skills

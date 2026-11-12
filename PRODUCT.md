@@ -30,9 +30,9 @@ There is no ranking for engagement. Only hand-picked sources are shown, plus a m
 
 ## Capabilities and Constraints
 
-- YouTube, RSS and website (feed autodiscovery) work without credentials.
+- YouTube, RSS and website (feed autodiscovery) work without credentials. A YouTube API key adds each channel's back catalogue.
 - X and Facebook need a self-hosted RSS bridge (`RSS_BRIDGE`, `RSS_BRIDGE_FACEBOOK`). No free route exists. That was measured 2026-11-11: nitter 410, xcancel 451, X syndication 429, and 10 public Nitter instances returned no tweets (nitter.net now shows X's cease-and-desist notice). People who also post on Bluesky or Mastodon are followed there instead, through their free public RSS.
-- There is no age cutoff or per-source cap: the feed keeps every post a source publishes, and infinite scroll reaches all of it. Substack, Bluesky and Mastodon are backfilled through their public archive APIs (every post, without replies or reposts), falling back to RSS if an API fails. A blog whose RSS holds only recent posts can add an `archive` index page, which is scraped for dated post links. YouTube stays at the latest 15 videos per channel, because going deeper needs a YouTube Data API key.
+- There is no age cutoff or per-source cap: the feed keeps every post a source publishes, and infinite scroll reaches all of it. Substack, Bluesky and Mastodon are backfilled through their public archive APIs (every post, without replies or reposts), falling back to RSS if an API fails. A blog whose RSS holds only recent posts can add an `archive` index page, which is scraped for dated post links. YouTube channel feeds hold only the latest 15 videos, so a YouTube Data API key (`YOUTUBE_API_KEY`) lets the weekly full run list every long-form upload. No short-form video: Shorts are never in the feed.
 - Stack: Bun, TypeScript, Vite, vanilla TS client, static hosting on a Cloudflare Worker (deployed with the `cf` CLI).
 - Undecided: where stopping cues go beyond the "caught up" divider. For example, whether older posts should feel different or need a deliberate tap to continue.
 
