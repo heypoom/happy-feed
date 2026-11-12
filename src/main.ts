@@ -925,6 +925,7 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
   // Every render rebuilds the controls, so keep keyboard focus on the same control across it.
   const focused = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("[data-key]");
   const focusKey = focused && controls.contains(focused) ? focused.dataset.key : undefined;
+  const keyboardFocus = !!focused?.matches(":focus-visible");
   // Until every chunk is in, an unfiltered feed counts from the manifest.
   const totals = filters.view === "feed" && narrowing(filters) === 0 && !archiveLoaded() ? feed.totals : undefined;
   const count = (format: Format | "") => {
@@ -1022,7 +1023,9 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
     }),
   );
   applyPeopleFind();
-  if (focusKey) controls.querySelector<HTMLElement>(`[data-key="${CSS.escape(focusKey)}"]`)?.focus();
+  // A tapped chip may move (an unselected person returns to the alphabet); focus follows it without
+  // scrolling there, so the next tap lands where the last one did. Keyboard focus still scrolls into view.
+  if (focusKey) controls.querySelector<HTMLElement>(`[data-key="${CSS.escape(focusKey)}"]`)?.focus({ preventScroll: !keyboardFocus });
 }
 
 // Phones only: what is narrowing the feed, kept in view under the bar, each one a tap to remove.
