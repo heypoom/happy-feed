@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, ITEMS, test } from "./fixtures";
+import { expect, ITEMS, MANIFEST, OLDER_CHUNK, test } from "./fixtures";
 
 const cards = (page: Page) => page.getByRole("main").getByRole("article");
 
@@ -32,6 +32,18 @@ test("a dealt card is remembered for today, so a reload deals the same stack", a
   const dealt = await page.evaluate(() => JSON.parse(localStorage.getItem("library:v1") ?? "{}").dealt);
   expect(Object.keys(dealt)).toEqual([ITEMS.paper.id]);
   await page.reload();
+  await expect(cards(page)).toHaveCount(1);
+  await expect(cards(page).first()).toContainText(ITEMS.paper.title);
+});
+
+test("a manifest without today's deck deals from the archive once it has loaded", async ({ page }) => {
+  await page.route("**/feed/manifest.json", (route) => route.fulfill({ json: { ...MANIFEST, decks: undefined, totals: undefined } }));
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(OLDER_CHUNK, async (route) => (await held, route.fallback()));
+  await page.goto("/?feed=anytime");
+  await expect(page.getByText("Dealing today's stack")).toBeVisible();
+  release();
   await expect(cards(page)).toHaveCount(1);
   await expect(cards(page).first()).toContainText(ITEMS.paper.title);
 });

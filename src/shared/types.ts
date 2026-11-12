@@ -60,4 +60,11 @@ export type Feed = {
 // its URL and stays cached.
 export type Chunk = { path: string; label: string; count: number; newest: string; oldest: string };
 
-export type Manifest = Omit<Feed, "items"> & { chunks: Chunk[] };
+export type Manifest = Omit<Feed, "items"> & {
+  chunks: Chunk[];
+  // Today's deck for every time zone, by UTC day (YYYY-MM-DD) around `generatedAt`: the posts a phone
+  // deals from before it has the archive (see deckFor). Manifests from before decks have neither field.
+  decks?: Record<string, string>;
+  // Posts per format across every chunk, so the counts are whole before the archive loads.
+  totals?: Record<Format, number>;
+};

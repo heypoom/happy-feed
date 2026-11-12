@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { dayKey, dealHand, dealStack, diverseOrder, HAND_MAX, orderFeed, STACK_SIZE } from "./order";
+import { dayKey, deckFor, dealHand, dealStack, diverseOrder, HAND_MAX, isFresh, orderFeed, poolCutoff, STACK_SIZE, type Dealt } from "./order";
 
 let serial = 0;
 const item = (author: string, day: number) => ({ id: `p${serial++}`, author, publishedAt: `2026-11-${String(day).padStart(2, "0")}T00:00:00.000Z` });
@@ -35,11 +35,15 @@ const old = (author: string, n: number, year = 2019) => ({ id: `${author}-${n}`,
 const week = (author: string, n: number) => ({ id: `${author}-new-${n}`, author, publishedAt: new Date(now.getTime() - (n % 6) * 86_400_000).toISOString() });
 const many = (make: (author: string, n: number) => ReturnType<typeof old>, authors: string[], each: number) => authors.flatMap((a) => Array.from({ length: each }, (_, n) => make(a, n)));
 
+// The client deals the hand from the posts in view, this week's among them.
+const handOf = <T extends ReturnType<typeof old>>(items: T[], when = now, dealt: Dealt = {}) =>
+  dealHand(items, { now: when, dealt, fresh: items.filter((post) => isFresh(post, when)) });
+
 const archive = many(old, ["Museum", "Patt", "Blog", "Quiet", "Essays", "Math", "Games", "Art", "Code", "Film"], 30);
 const thisWeek = many(week, ["Museum", "Patt", "Blog"], 10);
 
 test("the hand is one older post for every five new, at most eight, one per source, quiet sources first", () => {
-  const hand = dealHand([...thisWeek, ...archive], { now, dealt: {} });
+  const hand = handOf([...thisWeek, ...archive]);
   expect(hand).toHaveLength(Math.min(HAND_MAX, Math.floor(thisWeek.length / 5)));
   expect(new Set(hand.map((post) => post.author)).size).toBe(hand.length);
   expect(hand.every((post) => post.publishedAt < "2026-11-04")).toBe(true);
@@ -49,15 +53,15 @@ test("the hand is one older post for every five new, at most eight, one per sour
 
 test("the same day deals the same hand, and the next day deals a new one", () => {
   const items = [...thisWeek, ...archive];
-  const ids = (when: Date) => dealHand(items, { now: when, dealt: {} }).map((post) => post.id);
+  const ids = (when: Date) => handOf(items, when).map((post) => post.id);
   expect(ids(new Date(2026, 10, 11, 23, 59))).toEqual(ids(now));
   expect(ids(new Date(2026, 10, 12, 0, 1))).not.toEqual(ids(now));
 });
 
 test("archiving one hand card leaves the others where they were", () => {
   const items = [...thisWeek, ...archive];
-  const hand = dealHand(items, { now, dealt: {} });
-  const without = dealHand(items.filter((post) => post.id !== hand[2]!.id), { now, dealt: {} });
+  const hand = handOf(items);
+  const without = handOf(items.filter((post) => post.id !== hand[2]!.id));
   expect(without.filter((post) => post.author !== hand[2]!.author).map((post) => post.id)).toEqual(
     hand.filter((post) => post.author !== hand[2]!.author).map((post) => post.id),
   );
@@ -65,17 +69,17 @@ test("archiving one hand card leaves the others where they were", () => {
 
 test("posts dealt on an earlier day sit out; posts dealt today stay dealt", () => {
   const items = [...thisWeek, ...archive];
-  const hand = dealHand(items, { now, dealt: {} });
+  const hand = handOf(items);
   const today = Object.fromEntries(hand.map((post) => [post.id, dayKey(now)]));
-  expect(dealHand(items, { now, dealt: today })).toEqual(hand);
+  expect(handOf(items, now, today)).toEqual(hand);
   const tomorrow = new Date(2026, 10, 12, 12);
-  const next = dealHand(items, { now: tomorrow, dealt: today });
+  const next = handOf(items, tomorrow, today);
   expect(next.some((post) => post.id in today)).toBe(false);
 });
 
 test("a hand weaves in after every five new cards, and the caught-up point counts it", () => {
   const items = [...thisWeek, ...archive];
-  const hand = dealHand(items, { now, dealt: {} });
+  const hand = handOf(items);
   const { ordered, freshCount } = orderFeed(items, now, hand);
   expect(freshCount).toBe(thisWeek.length + hand.length);
   expect(ordered[5]).toBe(hand[0]!);
@@ -85,7 +89,7 @@ test("a hand weaves in after every five new cards, and the caught-up point count
 });
 
 test("too few new posts deals no hand", () => {
-  expect(dealHand([...thisWeek.slice(0, 4), ...archive], { now, dealt: {} })).toEqual([]);
+  expect(handOf([...thisWeek.slice(0, 4), ...archive])).toEqual([]);
 });
 
 test("a stack gives every source a turn, however many posts it has, and skips this week", () => {
@@ -115,4 +119,48 @@ test("a stack past the end of the pool is empty, not a repeat of the last one", 
   const few = archive.slice(0, 3);
   expect(dealStack(few, { now, dealt: {}, stack: 1 })).toHaveLength(3);
   expect(dealStack(few, { now, dealt: {}, stack: 2 })).toEqual([]);
+});
+
+test("every hour of a day deals from the same pool: posts from before the week's first day, in UTC", () => {
+  expect(poolCutoff("2026-11-11")).toBe("2026-11-04T00:00:00.000Z");
+  const edge = [{ id: "in", author: "A", publishedAt: "2026-11-03T23:59:59.999Z" }, { id: "out", author: "B", publishedAt: "2026-11-04T00:00:00.000Z" }];
+  for (const hour of [0, 12, 23]) expect(dealStack(edge, { now: new Date(2026, 10, 11, hour), dealt: {}, stack: 1 }).map((post) => post.id)).toEqual(["in"]);
+});
+
+const kinded = [
+  ...many(old, ["Museum", "Patt", "Blog", "Quiet", "Essays", "Math", "Games", "Art", "Code", "Film", "Ink"], 40),
+  ...many((author, n) => old(author, n, 2015), ["Giant"], 2000),
+].map((post) => ({ ...post, kind: "rss" }));
+const kindedWeek = thisWeek.map((post) => ({ ...post, kind: "rss" }));
+
+test("a day's deck deals the same hand and stacks as the whole archive, as deep as the deck goes", () => {
+  const deck = deckFor(kinded, dayKey(now));
+  expect(deck.length).toBeLessThanOrEqual(12 * 8);
+  expect(handOf([...kindedWeek, ...deck])).toEqual(handOf([...kindedWeek, ...kinded]));
+  // Twelve sources, six deep: three stacks of 24.
+  for (const stack of [1, 2, 3]) expect(dealStack(deck, { now, dealt: {}, stack })).toEqual(dealStack(kinded, { now, dealt: {}, stack }));
+});
+
+test("a deck keeps each source's best of every kind, so a hand filtered by kind deals as the archive would", () => {
+  const videos = many((author, n) => ({ ...old(author, n), id: `${author}-video-${n}` }), ["Museum", "Patt", "Quiet"], 40).map((post) => ({ ...post, kind: "youtube" }));
+  const items = [...kindedWeek, ...kinded, ...videos];
+  const onlyVideos = <T extends { kind: string }>(posts: T[]) => posts.filter((post) => post.kind === "youtube");
+  const fresh = kindedWeek.slice(0, 15);
+  const deck = deckFor(items, dayKey(now));
+  const hand = (pool: typeof items) => dealHand(onlyVideos(pool), { now, dealt: {}, fresh });
+  expect(hand(deck)).toHaveLength(3);
+  expect(hand(deck)).toEqual(hand(items));
+});
+
+test("a stack slices the day's one order, so digging deeper never repeats a card", () => {
+  const seen = new Set<string>();
+  for (let stack = 1; ; stack++) {
+    const dealt = dealStack(archive, { now, dealt: {}, stack });
+    if (dealt.length === 0) break;
+    for (const post of dealt) {
+      expect(seen.has(post.id)).toBe(false);
+      seen.add(post.id);
+    }
+  }
+  expect(seen.size).toBe(archive.length);
 });

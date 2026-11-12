@@ -1,10 +1,10 @@
 import { EXCLUDE_IDS, EXCLUDE_PRESETS, isExcluded, type ExcludeId } from "./shared/excludes";
 import { assignHues, hueOf, type Hue } from "./shared/hues";
 import { emptyLibrary, isShelved, mergeLibraries, parseLibrary, recordDealt, sameLibrary, shelfItems, SHELVES, toggleShelf, type Library, type Shelf } from "./shared/library";
-import { dayKey, dealHand, dealStack, orderFeed } from "./shared/order";
+import { dayKey, dealHand, dealStack, isFresh, orderFeed } from "./shared/order";
 import { blueskyApiUrl, fromBluesky, fromMastodon, mastodonApiUrl, type PostView } from "./shared/post-view";
 import { normalizePassphrase, SYNC_PATH, syncKey } from "./shared/sync";
-import { FORMAT_OF, type Feed, type FeedItem, type Format, type Manifest, type SourceKind } from "./shared/types";
+import { FORMAT_OF, type Chunk, type FeedItem, type Format, type Manifest, type SourceKind } from "./shared/types";
 import { fromWire, type WireItem } from "./shared/wire";
 
 type View = "feed" | Shelf;
@@ -13,7 +13,12 @@ type View = "feed" | Shelf;
 type Mode = "new" | "anytime";
 type Filters = { view: View; mode: Mode; stack: number; show: Format | ""; tags: Set<string>; kind: Set<string>; people: Set<string> };
 type ChipGroup = "tags" | "kind" | "people";
-type Row = { type: "card"; item: FeedItem } | { type: "caught-up"; hand: number } | { type: "stack-end"; stack: number; count: number; more: boolean };
+type Row =
+  | { type: "card"; item: FeedItem }
+  | { type: "caught-up"; hand: number }
+  | { type: "stack-end"; stack: number; count: number; more: boolean }
+  // Anytime without a deck to deal from waits here for the archive.
+  | { type: "dealing" };
 // How a dealt card shows its date: hand cards say "From Mar 2021", stack cards just "Mar 2021".
 type DealtAs = "hand" | "stack";
 type SyncSetup = { passphrase: string; key: string };
@@ -25,6 +30,7 @@ const FORMATS: Record<Format, { label: string; icon: string }> = {
   read: { label: "Read", icon: "i-book" },
   post: { label: "Posts", icon: "i-chat" },
 };
+const FORMAT_NAMES = Object.keys(FORMATS) as Format[];
 const KINDS: Record<SourceKind, { label: string; icon: string }> = {
   youtube: { label: "YouTube", icon: "i-tv" },
   rss: { label: "Blogs", icon: "i-file" },
@@ -73,10 +79,16 @@ const SHELF_COPY: Record<Shelf, { title: string; empty: string }> = {
 const DONE_LABEL: Record<Format, string> = { watch: "watched", read: "read", post: "read" };
 const systemDark = matchMedia("(prefers-color-scheme: dark)");
 
-let feed: Feed;
+// The manifest and the posts of every chunk loaded so far.
+let feed: Omit<Manifest, "chunks"> & { items: FeedItem[] };
+// Today's deck: what the hand and the stacks deal from, kept apart from the archive's posts.
+let deck: { day: string; items: FeedItem[] } | undefined;
+// The year chunks behind the recent one, newest first. New loads the next as its list runs out; a
+// filter, or dealing without a deck, loads them all. A chunk that failed is done too: only its own
+// posts are left out.
+let archive: { chunk: Chunk; load: "pending" | "loading" | "done" }[] = [];
 let hues = new Map<string, Hue>();
 let hidden = loadHidden();
-let hiddenCount = 0;
 let library = loadLibrary();
 // Guests keep their lists on this device only. With a passphrase, every change is sent at once and
 // the device pulls whenever it comes back into view, and every minute while it stays in view.
@@ -100,21 +112,28 @@ let dealtAs = new Map<string, DealtAs>();
 type Branding = { title?: string; thumbnail?: string };
 const brandings = new Map<string, Branding | null>();
 const BUILD_BRANDS_MS = 60 * 86_400_000;
-// The recent chunk is on screen and older ones are still loading, so the end of the list is not the end.
-let archivePending = false;
-// Bumped when a pull replaces the feed, so an archive still loading for the old one is dropped.
+// Bumped when a pull replaces the feed, so a chunk still loading for the old one is dropped.
 let feedVersion = 0;
 
 const observer = new IntersectionObserver(
   ([entry]) => {
-    if (!entry?.isIntersecting || rendered >= rows.length) return;
-    appendPage();
-    // Re-observing forces a fresh callback, so a tall screen keeps filling until the sentinel leaves view.
-    observer.unobserve(sentinel);
-    observer.observe(sentinel);
+    if (!entry?.isIntersecting) return;
+    if (rendered < rows.length) {
+      appendPage();
+      watchSentinel();
+      return;
+    }
+    const filters = readFilters();
+    if (filters.view === "feed" && filters.mode === "new") void loadArchive("next");
   },
   { rootMargin: "800px 0px" },
 );
+
+// Re-observing forces a fresh callback, so a tall screen keeps filling until the sentinel leaves view.
+function watchSentinel(): void {
+  observer.unobserve(sentinel);
+  observer.observe(sentinel);
+}
 
 const cheer = new IntersectionObserver(
   (entries) => {
@@ -248,21 +267,13 @@ function syncTheme(): void {
   for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) meta.content = ground;
 }
 
-// The manifest names the chunks, recent first. A plain feed URL paints from the recent chunk and adds
-// the archive when it arrives. A filtered or shelf URL waits for every chunk, since its counts,
-// people and shelves need every post. A chunk that fails to load leaves only its own posts out.
+// The manifest names the chunks, recent first, and today's deck. A plain feed URL paints from the
+// recent chunk and the deck. A link with a tag, source or person filter waits for every chunk, since
+// its counts and people need every post.
 async function start(): Promise<void> {
-  let loadArchive: () => Promise<FeedItem[]>;
   try {
-    const { chunks, ...manifest } = await getJson<Manifest>("feed/manifest.json", { cache: "no-cache" });
-    const [recent, ...older] = chunks;
-    loadArchive = async () =>
-      (await Promise.allSettled(older.map((chunk) => loadPosts(chunk.path)))).flatMap((result) => (result.status === "fulfilled" ? result.value : []));
-    const filters = readFilters();
-    const whole = filters.view !== "feed" || filters.mode === "anytime" || activeFilterCount(filters) > 0;
-    const [first, rest] = await Promise.all([recent ? loadPosts(recent.path) : [], whole ? loadArchive() : []]);
-    feed = { ...manifest, items: [...first, ...rest] };
-    archivePending = !whole && older.length > 0;
+    const manifest = await getJson<Manifest>("feed/manifest.json", { cache: "no-cache" });
+    await loadFeed(manifest, () => narrowing(readFilters()) > 0);
   } catch {
     list.replaceChildren(
       moment({
@@ -274,7 +285,6 @@ async function start(): Promise<void> {
     );
     return;
   }
-  hues = assignHues(feed.tags);
   window.addEventListener("popstate", () => {
     if (skipNextPop) skipNextPop = false;
     else if (viewer.open) viewer.close();
@@ -282,20 +292,59 @@ async function start(): Promise<void> {
   });
   render();
   observer.observe(sentinel);
-  const version = feedVersion;
-  if (archivePending) void loadArchive().then((items) => version === feedVersion && addArchive(items));
 }
 
-// Fetches the manifest again and, when the feed was republished (or the archive never finished
-// loading), every chunk. Chunks are named by content, so unchanged years come from the cache.
-async function reloadFeed(): Promise<boolean> {
-  const { chunks, ...manifest } = await getJson<Manifest>("feed/manifest.json", { cache: "no-cache" });
-  if (manifest.generatedAt === feed.generatedAt && !archivePending) return false;
-  const loaded = await Promise.allSettled(chunks.map((chunk) => loadPosts(chunk.path)));
+// Replaces the feed with a manifest's recent chunk, its deck for today, and the year chunks `load`
+// picks. A missing deck deals from the archive instead, and a failed year chunk leaves its posts out.
+async function loadFeed(manifest: Manifest, load: (chunk: Chunk) => boolean): Promise<void> {
+  const { chunks, ...rest } = manifest;
+  const [recent, ...older] = chunks;
+  const day = dayKey(new Date());
+  const deckPath = manifest.decks?.[day];
+  const years = older.filter(load);
+  const [first, dealt, loaded] = await Promise.all([
+    recent ? loadPosts(recent.path) : [],
+    deckPath ? loadPosts(deckPath).catch(() => undefined) : undefined,
+    Promise.allSettled(years.map((chunk) => loadPosts(chunk.path))),
+  ]);
   feedVersion++;
-  archivePending = false;
-  feed = { ...manifest, items: loaded.flatMap((result) => (result.status === "fulfilled" ? result.value : [])) };
+  feed = { ...rest, items: [...first, ...loaded.flatMap((result) => (result.status === "fulfilled" ? result.value : []))] };
+  deck = dealt && { day, items: dealt };
+  archive = older.map((chunk) => ({ chunk, load: years.includes(chunk) ? "done" : "pending" }));
   hues = assignHues(feed.tags);
+}
+
+// "next" loads the newest year chunk still pending, one at a time; "all" loads every pending one.
+async function loadArchive(which: "next" | "all"): Promise<void> {
+  if (which === "next" && archive.some((entry) => entry.load === "loading")) return;
+  const pending = archive.filter((entry) => entry.load === "pending");
+  const batch = which === "next" ? pending.slice(0, 1) : pending;
+  if (batch.length === 0) return;
+  for (const entry of batch) entry.load = "loading";
+  const version = feedVersion;
+  const loaded = await Promise.allSettled(batch.map((entry) => loadPosts(entry.chunk.path)));
+  if (version !== feedVersion) return;
+  for (const entry of batch) entry.load = "done";
+  addArchive(loaded.flatMap((result) => (result.status === "fulfilled" ? result.value : [])));
+}
+
+const archiveLoaded = () => archive.every((entry) => entry.load === "done");
+
+// Tag, source and person filters count and list across every chunk, and dealing without today's deck
+// needs the whole archive.
+const needsArchive = (filters: Filters) => narrowing(filters) > 0 || (filters.view === "feed" && !todaysDeck());
+
+const todaysDeck = () => (deck?.day === dayKey(new Date()) ? deck.items : undefined);
+
+// Fetches the manifest again and, when the feed was republished or a new day has a deck, the recent
+// chunk, the deck and the year chunks already loaded. Chunks are named by content, so unchanged
+// years come from the cache.
+async function reloadFeed(): Promise<boolean> {
+  const manifest = await getJson<Manifest>("feed/manifest.json", { cache: "no-cache" });
+  const newDeck = manifest.decks?.[dayKey(new Date())] !== undefined && !todaysDeck();
+  if (manifest.generatedAt === feed.generatedAt && !newDeck) return false;
+  const loaded = new Set(archive.filter((entry) => entry.load === "done").map((entry) => entry.chunk.label));
+  await loadFeed(manifest, (chunk) => loaded.has(chunk.label));
   return true;
 }
 
@@ -401,11 +450,10 @@ async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-// The archive joins a feed already on screen. Cards the reader can see stay put when the new list
+// Year chunks join a feed already on screen. Cards the reader can see stay put when the new list
 // starts with them, or when the reader has scrolled past the first screen; the rest of the list
 // follows them. Otherwise the list renders afresh.
 function addArchive(items: FeedItem[]): void {
-  archivePending = false;
   feed.items = feed.items.concat(items);
   const filters = readFilters();
   const chipMatches = viewItems(filters);
@@ -419,10 +467,8 @@ function addArchive(items: FeedItem[]): void {
   rows = [...rows.filter((row) => onScreen.has(rowId(row))), ...next.filter((row) => !onScreen.has(rowId(row)))];
   rendered = shown.length;
   if (rendered >= rows.length) appendPage();
-  else {
-    observer.unobserve(sentinel);
-    observer.observe(sentinel);
-  }
+  // The list may still end on screen, so New asks for the next chunk.
+  watchSentinel();
 }
 
 function rowId(row: Row): string {
@@ -529,7 +575,7 @@ function libraryArrived(next: Library): void {
     else refreshControls();
     return;
   }
-  const byId = new Map(feed.items.map((item) => [item.id, item]));
+  const byId = new Map(loadedItems().map((item) => [item.id, item]));
   for (const card of list.querySelectorAll<HTMLElement>(".card[data-id]")) {
     const item = byId.get(card.dataset.id!);
     if (!item) continue;
@@ -655,7 +701,12 @@ function writeFilters(next: Filters): void {
 }
 
 function activeFilterCount(filters: Filters): number {
-  return filters.tags.size + filters.kind.size + filters.people.size + (filters.show ? 1 : 0);
+  return narrowing(filters) + (filters.show ? 1 : 0);
+}
+
+// Tag, source and person filters; the format tab is not one of them.
+function narrowing(filters: Filters): number {
+  return filters.tags.size + filters.kind.size + filters.people.size;
 }
 
 // Clears what narrows the list; the current list (feed, favourites, archive) and No AI stay as they are.
@@ -670,6 +721,14 @@ function matchesChips(item: FeedItem, filters: Filters): boolean {
   return tagOk && kindOk && personOk;
 }
 
+const matchesShow = (item: FeedItem, filters: Filters) => !filters.show || FORMAT_OF[item.kind] === filters.show;
+
+// The feed leaves out posts marked read or watched, and posts about a topic No AI hides.
+const inFeed = (item: FeedItem) => !isShelved(library, "archive", item.id) && !isExcluded(item, hidden);
+
+// Whether the feed shows a post under these filters, whether it came from the archive or the deck.
+const inView = (item: FeedItem, filters: Filters) => inFeed(item) && matchesChips(item, filters) && matchesShow(item, filters);
+
 function render(): void {
   const filters = readFilters();
   const { view } = filters;
@@ -682,11 +741,7 @@ function render(): void {
   rendered = 0;
   list.replaceChildren(...(view === "feed" ? [] : [shelfHead(view, Object.keys(library[view]).length)]));
 
-  // Anytime deals from every year, so it waits for the archive (a plain feed URL paints before it lands).
-  if (view === "feed" && filters.mode === "anytime" && archivePending) {
-    list.append(moment({ mood: "happy", title: "Dealing today's stack", body: "Gathering posts from every year." }));
-    return;
-  }
+  if (needsArchive(filters)) void loadArchive("all");
   if (rows.length === 0) {
     const shelfEmpty = view !== "feed" && Object.keys(library[view]).length === 0;
     list.append(
@@ -704,21 +759,29 @@ function render(): void {
   appendPage();
 }
 
-// Dealing needs every chunk: until the archive arrives, New shows this week without its hand.
+// Today's deck deals the hand in every view, and the stack unless a tag, source or person filter
+// narrows the pool past the deck's depth (that filter loads the archive anyway). Otherwise the
+// archive deals once every chunk is in; until then New has no hand and Anytime waits.
 function rowsFor(filters: Filters, chipMatches: FeedItem[]): Row[] {
-  const visible = chipMatches.filter((item) => !filters.show || FORMAT_OF[item.kind] === filters.show);
+  const visible = chipMatches.filter((item) => matchesShow(item, filters));
   dealtAs = new Map();
   if (filters.view !== "feed") return visible.map((item): Row => ({ type: "card", item }));
   const now = new Date();
-  const pool = visible.filter((item) => !isShelved(library, "favourites", item.id));
+  const fromDeck = todaysDeck()?.filter((item) => inView(item, filters));
+  const pool = (useDeck: boolean) =>
+    (useDeck && fromDeck ? fromDeck : archiveLoaded() ? visible : undefined)?.filter((item) => !isShelved(library, "favourites", item.id));
+  const deal = { now, dealt: library.dealt };
   if (filters.mode === "anytime") {
-    const stack = dealStack(pool, { now, dealt: library.dealt, stack: filters.stack });
+    const stackPool = pool(narrowing(filters) === 0);
+    if (!stackPool) return [{ type: "dealing" }];
+    const stack = dealStack(stackPool, { ...deal, stack: filters.stack });
     if (stack.length === 0) return [];
     for (const item of stack) dealtAs.set(item.id, "stack");
-    const more = dealStack(pool, { now, dealt: library.dealt, stack: filters.stack + 1 }).length > 0;
+    const more = dealStack(stackPool, { ...deal, stack: filters.stack + 1 }).length > 0;
     return [...stack.map((item): Row => ({ type: "card", item })), { type: "stack-end", stack: filters.stack, count: stack.length, more }];
   }
-  const hand = archivePending ? [] : dealHand(pool, { now, dealt: library.dealt });
+  const handPool = pool(true);
+  const hand = handPool ? dealHand(handPool, { ...deal, fresh: visible.filter((item) => isFresh(item, now)) }) : [];
   for (const item of hand) dealtAs.set(item.id, "hand");
   const { ordered, freshCount } = orderFeed(visible, now, hand);
   const rows = ordered.map((item): Row => ({ type: "card", item }));
@@ -728,15 +791,12 @@ function rowsFor(filters: Filters, chipMatches: FeedItem[]): Row[] {
 
 // The feed hides archived posts and excluded topics; a shelf shows exactly what you saved.
 function viewItems(filters: Filters): FeedItem[] {
-  const { view } = filters;
-  const source =
-    view === "feed"
-      ? feed.items.filter((item) => !isShelved(library, "archive", item.id))
-      : shelfItems(library, view, new Map(feed.items.map((item) => [item.id, item])));
-  const kept = view === "feed" ? source.filter((item) => !isExcluded(item, hidden)) : source;
-  hiddenCount = source.length - kept.length;
-  return kept.filter((item) => matchesChips(item, filters));
+  const source = filters.view === "feed" ? feed.items.filter(inFeed) : shelfItems(library, filters.view, new Map(loadedItems().map((item) => [item.id, item])));
+  return source.filter((item) => matchesChips(item, filters));
 }
+
+// Every post this device holds: the chunks loaded so far and today's deck.
+const loadedItems = () => (deck ? feed.items.concat(deck.items) : feed.items);
 
 function refreshControls(): void {
   const filters = readFilters();
@@ -771,7 +831,7 @@ function appendPage(): void {
   list.append(...page.map(renderRow));
   rendered += page.length;
   const filters = readFilters();
-  if (rendered >= rows.length && filters.view === "feed" && filters.mode === "new" && !archivePending) list.append(renderEnd());
+  if (rendered >= rows.length && filters.view === "feed" && filters.mode === "new" && archiveLoaded()) list.append(renderEnd());
   // A dealt card counts once it is on the page; other days and other devices then deal something else.
   const dealtNow = page.flatMap((row) => (row.type === "card" && dealtAs.has(row.item.id) ? [row.item.id] : []));
   const next = recordDealt(library, dealtNow, dayKey(new Date()));
@@ -781,6 +841,7 @@ function appendPage(): void {
 function renderRow(row: Row): HTMLElement {
   if (row.type === "card") return renderCard(row.item);
   if (row.type === "caught-up") return renderCaughtUp(row.hand);
+  if (row.type === "dealing") return renderDealing();
   return renderStackEnd(row);
 }
 
@@ -795,9 +856,14 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
   // Every render rebuilds the controls, so keep keyboard focus on the same control across it.
   const focused = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("[data-key]");
   const focusKey = focused && controls.contains(focused) ? focused.dataset.key : undefined;
-  const formats = [...new Set(feed.items.map((item) => FORMAT_OF[item.kind]))];
-  const count = (format: Format | "") =>
-    chipMatches.filter((item) => !format || FORMAT_OF[item.kind] === format).length;
+  // Until every chunk is in, an unfiltered feed counts from the manifest.
+  const totals = filters.view === "feed" && narrowing(filters) === 0 && !archiveLoaded() ? feed.totals : undefined;
+  const count = (format: Format | "") => {
+    if (!totals) return chipMatches.filter((item) => !format || FORMAT_OF[item.kind] === format).length;
+    return format ? totals[format] : totals.watch + totals.read + totals.post;
+  };
+  const present = new Set(totals ? FORMAT_NAMES.filter((format) => totals[format] > 0) : feed.items.map((item) => FORMAT_OF[item.kind]));
+  const formats = FORMAT_NAMES.filter((format) => present.has(format));
 
   const tabButtons = (where: string) =>
     (["", ...formats] as const).map((format) => {
@@ -817,11 +883,11 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
   tabs.replaceChildren(...tabButtons("bar"));
   sheetTabs.replaceChildren(...tabButtons("sheet"));
 
-  const narrowing = filters.tags.size + filters.kind.size + filters.people.size;
+  const narrowed = narrowing(filters);
   const badge = filtersButton.querySelector<HTMLElement>(".badge")!;
-  badge.textContent = String(narrowing);
-  badge.hidden = narrowing === 0;
-  filtersButton.setAttribute("aria-label", narrowing > 0 ? `Filters, ${narrowing} on` : "Filters");
+  badge.textContent = String(narrowed);
+  badge.hidden = narrowed === 0;
+  filtersButton.setAttribute("aria-label", narrowed > 0 ? `Filters, ${narrowed} on` : "Filters");
   filtersButton.setAttribute("aria-expanded", String(sheet.open));
   const shown = count(filters.show);
   sheetDone.textContent = shown === 0 ? "Nothing matches" : `Show ${shown.toLocaleString()} post${shown === 1 ? "" : "s"}`;
@@ -869,7 +935,8 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
   );
 
   const authors = new Map<string, Hue>();
-  for (const item of feed.items) if (!authors.has(item.author)) authors.set(item.author, hueFor(item));
+  // The deck has every source with an older post, so the list is whole before the archive loads.
+  for (const item of loadedItems()) if (!authors.has(item.author)) authors.set(item.author, hueFor(item));
   // Selected people lead the list, so what is filtering the feed is never buried in the alphabet.
   const ordered = [...authors].sort(
     ([a], [b]) =>
@@ -911,7 +978,7 @@ function renderActiveStrip(filters: Filters, active: number): void {
     token("kind", kind, known?.label ?? kind, icon(known?.icon ?? "i-globe"));
   }
   for (const person of filters.people) {
-    const item = feed.items.find((candidate) => candidate.author === person);
+    const item = loadedItems().find((candidate) => candidate.author === person);
     token("people", person, person, h("span", { className: "monogram", ariaHidden: "true" }, [initial(person)]), item ? hueFor(item) : hueOf(person));
   }
   activeStrip.hidden = tokens.length === 0;
@@ -1404,8 +1471,15 @@ function renderStackEnd({ stack, count, more }: Extract<Row, { type: "stack-end"
   return el;
 }
 
+function renderDealing(): HTMLElement {
+  const el = moment({ mood: "happy", title: "Dealing today's stack", body: "Gathering posts from every year." });
+  el.dataset.row = "dealing";
+  return el;
+}
+
 function renderEnd(): HTMLElement {
   const skipped = feed.errors.length;
+  const hiddenCount = feed.items.filter((item) => !isShelved(library, "archive", item.id) && isExcluded(item, hidden)).length;
   return moment({
     mood: "sleepy",
     title: "That's everything",

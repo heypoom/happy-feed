@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
-import { expect, ITEMS, OLDER_CHUNK, RECENT_CHUNK, test } from "./fixtures";
+import { dayKey } from "../src/shared/order";
+import { expect, item, ITEMS, OLDER_CHUNK, publishFeed, RECENT_CHUNK, serveFeed, test } from "./fixtures";
 
 const cards = (page: Page) => page.getByRole("main").getByRole("article");
 
@@ -23,21 +24,74 @@ function feedEvents(page: Page): string[] {
   return events;
 }
 
-test("the feed paints from the manifest and the recent chunk, then adds the older chunk", async ({ page }) => {
+// Ten sources: forty posts in the last three weeks, then two years of thirty each.
+const SOURCES = ["Ada", "Ben", "Cleo", "Dana", "Eli", "Fay", "Gus", "Hana", "Ivo", "Juno"];
+const post = (n: number, age: number) =>
+  item({ id: `rss:p${n}`, kind: "rss", title: `Post ${n}`, author: SOURCES[n % 10]!, tags: [n % 10 < 3 ? "HCI" : "Play"] }, age);
+const range = (from: number, count: number, age: (i: number) => number) => Array.from({ length: count }, (_, i) => post(from + i, age(i)));
+const YEAR_CHUNK = "/feed/items-2026-0000cccc.json";
+const OLDEST_CHUNK = "/feed/items-2025-0000eeee.json";
+const BIG = publishFeed(
+  {
+    "feed/items-recent-0000ffff.json": range(0, 40, (i) => i / 2),
+    [YEAR_CHUNK.slice(1)]: range(100, 30, (i) => 60 + i * 5),
+    [OLDEST_CHUNK.slice(1)]: range(200, 30, (i) => 400 + i * 5),
+  },
+  { tags: ["HCI", "Play"], kinds: ["rss"], errors: [] },
+);
+const yearRequests = (page: Page) => {
+  const seen: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (/^\/feed\/items-\d{4}-/.test(path)) seen.push(path);
+  });
+  return seen;
+};
+
+test("the first visit loads the manifest, the recent chunk and today's deck, and no year", async ({ page }) => {
   const events = feedEvents(page);
-  const release = await holdOlderChunk(page);
-
+  await serveFeed(page, BIG);
   await page.goto("/");
-  await expect(cards(page)).toHaveCount(3);
-  expect(events.filter((event) => event.startsWith("done"))).toEqual(["done /feed/manifest.json", `done ${RECENT_CHUNK}`]);
-  expect(events.indexOf(`start ${OLDER_CHUNK}`)).toBeGreaterThan(events.indexOf(`done ${RECENT_CHUNK}`));
-  await expect(page.getByText("That's everything")).toHaveCount(0);
+  await expect(page.locator("time.dealt")).toHaveCount(2);
+  await expect(page.getByText("You're all caught up!")).toBeAttached();
+  await expect(page.getByRole("button", { name: /^All, 100 posts/ })).toBeVisible();
+  await page.goto("/?feed=anytime");
+  await expect(cards(page)).toHaveCount(20);
+  await page.evaluate(() => scrollTo(0, document.body.scrollHeight));
+  await expect(cards(page)).toHaveCount(24);
+  await expect(page.getByText("That's today's stack")).toBeAttached();
+  await expect(page.getByText("That's today's stack")).toBeVisible();
+  const fetched = new Set(events.filter((event) => event.startsWith("start")).map((event) => event.replace(/-[0-9a-f]{8}\.json$/, "")));
+  expect([...fetched].sort()).toEqual([`start /feed/deck-${dayKey(new Date())}`, "start /feed/items-recent", "start /feed/manifest.json"]);
+});
 
-  release();
-  await expect(cards(page)).toHaveCount(4);
-  await expect(page.getByText("You're all caught up!")).toBeVisible();
-  await expect(page.getByText("That's everything")).toBeAttached();
-  expect(events.filter((event) => event.startsWith("start"))).toEqual(["start /feed/manifest.json", `start ${RECENT_CHUNK}`, `start ${OLDER_CHUNK}`]);
+test("scrolling past what has loaded brings in the next year, and only that one", async ({ page }) => {
+  const years = yearRequests(page);
+  await serveFeed(page, BIG);
+  await page.goto("/");
+  await expect(page.getByText("You're all caught up!")).toBeAttached();
+  expect(years).toEqual([]);
+  // Scroll only until the list asks for more, so a later page of the new year can't ask again.
+  for (let i = 0; i < 30 && years.length === 0; i++) {
+    await page.evaluate(() => scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(100);
+  }
+  expect(years).toEqual([YEAR_CHUNK]);
+  await expect(cards(page).filter({ hasText: "Post 100" })).toBeAttached();
+  await page.waitForTimeout(300);
+  expect(years).toEqual([YEAR_CHUNK]);
+  await expect(page.getByText("That's everything")).toHaveCount(0);
+});
+
+test("a tag filter loads every year left, for its counts and people", async ({ page, isMobile }) => {
+  const years = yearRequests(page);
+  await serveFeed(page, BIG);
+  await page.goto("/");
+  await expect(page.getByText("You're all caught up!")).toBeAttached();
+  if (isMobile) await page.locator(".filters-button").click();
+  await page.getByRole("button", { name: "HCI", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^All, 30 posts/ }).first()).toBeAttached();
+  expect(years.sort()).toEqual([OLDEST_CHUNK, YEAR_CHUNK]);
 });
 
 test("a link filtered to people waits for every chunk before it renders", async ({ page }) => {

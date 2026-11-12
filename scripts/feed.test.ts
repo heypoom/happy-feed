@@ -260,12 +260,13 @@ test("a chunk keeps its name while its posts stay the same", async () => {
   expect(recent!.path).toMatch(/^feed\/items-recent-[0-9a-f]{8}\.json$/);
 });
 
-test("a reader of the manifest always finds every chunk it names", async () => {
+test("a reader of the manifest always finds every chunk and deck it names", async () => {
   const { clock, store } = clockedStore();
   const violations: string[] = [];
   const check = async (op: string) => {
     const manifest = await store.get<Manifest>(MANIFEST_PATH);
-    for (const chunk of manifest?.chunks ?? []) if (!store.objects.has(chunk.path)) violations.push(`${op}: ${chunk.path}`);
+    const paths = [...(manifest?.chunks.map((chunk) => chunk.path) ?? []), ...Object.values(manifest?.decks ?? {})];
+    for (const path of paths) if (!store.objects.has(path)) violations.push(`${op}: ${path}`);
   };
   const put = store.put.bind(store);
   const del = store.delete.bind(store);
@@ -275,16 +276,17 @@ test("a reader of the manifest always finds every chunk it names", async () => {
   const sources = mergeSources([rssOnly]);
   for (let day = 0; day < 6; day++) {
     clock.now = new Date(now.getTime() + day * DAY);
-    await refresh(sources, { store, providers: registry([raw(`d${day}`, `Day ${day}`, -day)]), now: clock.now });
+    await refresh(sources, { store, providers: registry([raw(`d${day}`, `Day ${day}`, -day), raw("old", "Old", 30)]), now: clock.now });
     await publish(sources, { store, now: clock.now });
   }
   expect(violations).toEqual([]);
 });
 
-test("an unreferenced chunk is deleted once it is more than two days old", async () => {
+test("an unreferenced chunk or deck is deleted once it is more than two days old", async () => {
   const { clock, store } = clockedStore();
   const sources = mergeSources([rssOnly]);
   const chunkKeys = async () => (await store.list("feed/items-")).map((object) => object.key).sort();
+  const deckKeys = async () => (await store.list("feed/deck-")).map((object) => object.key).sort();
 
   await refresh(sources, { store, providers: registry([raw("a", "A", 1)]), now });
   const first = (await publish(sources, { store, now })).manifest.chunks[0]!.path;
@@ -295,8 +297,25 @@ test("an unreferenced chunk is deleted once it is more than two days old", async
   expect(await chunkKeys()).toEqual([first, second].sort());
 
   clock.now = new Date(now.getTime() + 2 * DAY + 60_000);
-  await publish(sources, { store, now: clock.now });
+  const { manifest } = await publish(sources, { store, now: clock.now });
   expect(await chunkKeys()).toEqual([second]);
+  const decks = await deckKeys();
+  expect(decks).toEqual(expect.arrayContaining(Object.values(manifest.decks!)));
+  // The first run's deck for the day before was only ever named by that run.
+  expect(decks.some((key) => key.startsWith("feed/deck-2026-11-10-"))).toBe(false);
+});
+
+test("each UTC day around the build gets a deck of posts from before its week, and the manifest counts every format", async () => {
+  const store = new MemoryStore(() => now);
+  const posts = [raw("today", "Today", 0), raw("week", "Six days", 6), raw("eight", "Eight days", 8), raw("old", "Old", 400)];
+  const { manifest } = await build([rssOnly], registry(posts), now, store);
+  expect(Object.keys(manifest.decks!)).toEqual(["2026-11-10", "2026-11-11", "2026-11-12"]);
+  for (const [day, path] of Object.entries(manifest.decks!)) {
+    expect(path).toMatch(new RegExp(`^feed/deck-${day}-[0-9a-f]{8}\\.json$`));
+    const deck = (await store.get<WireItem[]>(path))!.map((post) => post.id);
+    expect(deck).toEqual(day === "2026-11-10" ? ["rss:old"] : ["rss:eight", "rss:old"]);
+  }
+  expect(manifest.totals).toEqual({ watch: 0, read: 4, post: 0 });
 });
 
 test("Shorts stored before they were filtered out never reach the feed", async () => {

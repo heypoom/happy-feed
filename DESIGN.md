@@ -336,7 +336,7 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 - **Character:** the sprout's stopping point.
 - A surface card with 32px corners and the soft shadow, holding a centered 96px sprout, a display title, Literata body copy, an optional pill button, and optional fine print. The "happy" mood hops and waves its leaves once when it scrolls into view. The "sleepy" mood closes its eyes and is used for the end, empty and error states.
 - **Caught up** counts today's hand: "That's this week, plus 8 from the archive. A new hand is dealt tomorrow."
-- **End of a stack** (Anytime) is sleepy: "That's today's stack" (or "That's stack 2"), the number of picks, "A fresh stack is dealt tomorrow." and a quiet surface "Keep digging" button, shown only while there is more to deal. Another stack is always a tap, never more scrolling. While older posts are still loading, Anytime shows a happy "Dealing today's stack" moment.
+- **End of a stack** (Anytime) is sleepy: "That's today's stack" (or "That's stack 2"), the number of picks, "A fresh stack is dealt tomorrow." and a quiet surface "Keep digging" button, shown only while there is more to deal. Another stack is always a tap, never more scrolling. When the stack deals from the archive (no deck for the day, or a tag, source or person filter) and older posts are still loading, Anytime shows a happy "Dealing today's stack" moment.
 
 ### Sync Line and Sync Sheet
 - Under a shelf's title: an 18px cloud, a muted status ("On this device only.", "Synced across your devices." with a leaf-green cloud, or "Couldn't sync just now.") and an accent text button, "Sync devices" or "Sync settings".
