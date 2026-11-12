@@ -284,7 +284,7 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 ## Components
 
 ### New / Anytime
-- Two words under the masthead row in the masthead's voice (Bricolage 750, 1.3rem, -0.025em), 22px apart, each a 44px tap target. The selected one is in full ink with a 3px accent underline that draws in from the centre; the other is muted and inks on hover. It scrolls away with the masthead, so the sticky bar stays one row. Neither is selected on a shelf.
+- Two words under the masthead row in the masthead's voice (Bricolage 750, 1.3rem, -0.025em), 22px apart, each a 44px tap target. The selected one is in full ink with a 3px accent underline that draws in from the centre; the other is muted and inks on hover. It scrolls away with the masthead, so the sticky bar stays one row. On a shelf (Favourites, Archive) neither applies, so the row steps aside: the words fade and lift 8px with a 3px blur, then the row folds shut (0.4s ease-out), giving the list 50px back; leaving the shelf reverses it. A page opened on a shelf starts folded, and with reduced motion it simply hides.
 - In the URL as `?feed=anytime` (New is the default), and `&stack=N` for a stack dug past the first.
 
 ### Pull to Refresh (touch screens)

@@ -335,7 +335,38 @@ button {
 .modes {
   display: flex;
   gap: 22px;
+  max-height: 50px;
   padding-bottom: 6px;
+}
+
+/* On a shelf: the words fade and lift away first, then the row folds shut. Coming back, the row opens
+   and the words settle in after it. */
+.modes.away {
+  max-height: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.modes.away .mode {
+  transform: translateY(-8px);
+  filter: blur(3px);
+}
+
+.modes.ready {
+  transition:
+    max-height 0.4s var(--ease-out),
+    padding-bottom 0.4s var(--ease-out),
+    opacity 0.3s var(--ease-out) 0.1s,
+    visibility 0s linear 0s;
+}
+
+.modes.ready.away {
+  transition:
+    max-height 0.4s var(--ease-out) 0.08s,
+    padding-bottom 0.4s var(--ease-out) 0.08s,
+    opacity 0.18s var(--ease-out),
+    visibility 0s linear 0.48s;
 }
 
 .mode {
@@ -363,6 +394,13 @@ button {
 }
 
 /* Only after the first paint, so a page that opens on Anytime doesn't animate New's underline away. */
+.modes.ready .mode {
+  transition:
+    color 0.25s var(--ease-out),
+    transform 0.4s var(--ease-out),
+    filter 0.4s var(--ease-out);
+}
+
 .modes.ready .mode::after {
   transition: transform 0.35s var(--ease-out);
 }
@@ -2338,6 +2376,8 @@ html:has(.viewer[open]) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .modes.ready,
+  .modes.ready .mode,
   .modes.ready .mode::after {
     transition: none;
   }

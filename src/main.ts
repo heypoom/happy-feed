@@ -71,6 +71,7 @@ const NETWORK: Partial<Record<SourceKind, { name: string; load: (item: FeedItem)
   mastodon: { name: "Mastodon", load: (item) => loadPost(mastodonApiUrl(item.url), fromMastodon) },
 };
 const shelfLinks = [...document.querySelectorAll<HTMLButtonElement>(".shelf-link")];
+const modes = document.querySelector<HTMLElement>(".modes")!;
 const modeButtons = [...document.querySelectorAll<HTMLButtonElement>(".mode")];
 const SHELF_COPY: Record<Shelf, { title: string; empty: string }> = {
   favourites: { title: "Favourites", empty: "Tap the heart on anything you love and it will wait for you here." },
@@ -164,7 +165,7 @@ for (const button of modeButtons) {
   });
 }
 renderModes(readFilters());
-requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector(".modes")!.classList.add("ready")));
+requestAnimationFrame(() => requestAnimationFrame(() => modes.classList.add("ready")));
 
 for (const link of shelfLinks) {
   link.addEventListener("click", () => {
@@ -845,7 +846,10 @@ function renderRow(row: Row): HTMLElement {
   return renderStackEnd(row);
 }
 
+// On a shelf neither feed is selected, so the row steps aside and gives the list its room.
 function renderModes(filters: Filters): void {
+  modes.classList.toggle("away", filters.view !== "feed");
+  modes.inert = filters.view !== "feed";
   for (const button of modeButtons) {
     button.setAttribute("aria-pressed", String(filters.view === "feed" && button.dataset.mode === filters.mode));
   }

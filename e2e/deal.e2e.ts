@@ -47,3 +47,12 @@ test("a manifest without today's deck deals from the archive once it has loaded"
   await expect(cards(page)).toHaveCount(1);
   await expect(cards(page).first()).toContainText(ITEMS.paper.title);
 });
+
+test("a shelf folds New and Anytime away, and the feed brings them back", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('.shelf-link[data-shelf="favourites"]').click();
+  await expect(page.getByRole("button", { name: "Anytime" })).toBeHidden();
+  await page.getByRole("button", { name: "Back to the feed" }).first().click();
+  await expect(page.getByRole("button", { name: "New" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Anytime" })).toBeVisible();
+});
