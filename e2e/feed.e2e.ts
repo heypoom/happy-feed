@@ -175,3 +175,20 @@ test("the Clear chip keeps its accent fill, so its label stays legible", async (
     expect(fg).not.toBe(bg);
   }
 });
+
+test("a filter change morphs, and leaves nothing named once it settles", async ({ page }) => {
+  await page.goto("/");
+  await expect(cards(page)).toHaveCount(4);
+  const morphs = await page.evaluate(() => {
+    const seen = { count: 0 };
+    const start = document.startViewTransition.bind(document);
+    document.startViewTransition = ((update: () => void) => (seen.count++, start(update))) as typeof document.startViewTransition;
+    (window as unknown as { morphs: typeof seen }).morphs = seen;
+    return seen.count;
+  });
+  expect(morphs).toBe(0);
+  await page.getByRole("button", { name: "Watch" }).first().click();
+  await expect(page).toHaveURL(/\?show=watch$/);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { morphs: { count: number } }).morphs.count)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('[style*="view-transition-name"]').count()).toBe(0);
+});

@@ -345,6 +345,11 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 ### Masthead
 - The 40px sprout and the wordmark on the left (34px and 1.3rem below 400px; 34px and 1.1rem in the desktop rail, so the row fits 300px on one line), the Favourites and Archive circles and the 44px circular theme toggle on the right. On hover the toggle rotates -20 degrees, and the sun and moon icons cross-fade with a rotation.
 
+### Morphs (filter and feed changes)
+- A change to what the page shows (a tab, chip, No AI, New/Anytime, a shelf, Back, a pull or sync that changes the list, older years arriving) morphs instead of flashing, through a same-document View Transition. Cards and controls on screen in both states glide to their new places (0.32s out-expo). Cards that leave fade in 0.12s, and arriving cards then fade in with an 8px rise (0.3s, after 0.12s), so old and new never double-expose. Everything else cross-fades in 0.18s. A control that changes width keeps its drawing at its own size rather than stretching.
+- Only what is on screen takes part: a card must start below the phone's sticky bar, and a control must sit whole inside the screen and the desktop rail. Nothing is named while a sheet or the viewer is open, because the morph draws above them; the sheet just cross-fades. Taps pass straight through a morph, and a tap during one cuts it short.
+- Reduced motion: nothing moves; changed things still cross-fade in 0.18s. Browsers without View Transitions update at once, as before.
+
 ### Loading Skeleton
 - Wash tiles with pulsing bars in a 30% solid tint, in rotating hues.
 
@@ -355,7 +360,7 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 - **Do** keep watch and read visibly distinct in anatomy (a frameless picture versus a tinted tile) and in title voice (Bricolage versus Literata), not only in the format pill.
 - **Do** make every read card work with no image. The jewel tile is the image-less form.
 - **Do** ship every color change in both themes and through the header toggle. Check text on washes, solids and jewels at 4.5:1 in each theme.
-- **Do** use the shared out-expo ease (cubic-bezier(0.16, 1, 0.3, 1)), and let `prefers-reduced-motion` switch off every animation and transition.
+- **Do** use the shared out-expo ease (cubic-bezier(0.16, 1, 0.3, 1)), and let `prefers-reduced-motion` switch off movement; a plain cross-fade may stay where it shows what changed.
 - **Do** mark stopping points with the sprout mascot, happy when caught up and sleepy at the end.
 
 ### Don't:

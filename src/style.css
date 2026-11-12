@@ -2449,3 +2449,72 @@ html.pulling:not(.pull-settling) .controls {
     transition-duration: 0.01s;
   }
 }
+
+/* Morphs: a filter, list or feed change (see morph() in main.ts). Cards and controls that stay glide,
+   cards that leave fade quickly, new ones fade in with a small rise, and the rest cross-fades. Taps
+   go straight through to the page underneath. */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-group(*) {
+  animation-duration: 0.32s;
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-group(root) {
+  animation-duration: 0.18s;
+}
+
+/* A control that changes width (the active tab grows a label) keeps its drawing at its own size
+   rather than stretching to the box. */
+::view-transition-old(.control),
+::view-transition-new(.control) {
+  height: 100%;
+  object-fit: none;
+  object-position: left center;
+}
+
+/* Leaving cards are gone before arriving ones show, so the two never double-expose. */
+::view-transition-old(.card):only-child {
+  animation: morph-out 0.12s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+::view-transition-new(.card):only-child {
+  animation: morph-in 0.3s var(--ease-out) 0.12s both;
+}
+
+@keyframes morph-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes morph-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Reduced motion: nothing moves; what changed still cross-fades. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*) {
+    animation: none;
+  }
+
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.18s;
+  }
+
+  ::view-transition-new(.card):only-child {
+    animation-name: morph-fade-in;
+  }
+}
+
+@keyframes morph-fade-in {
+  from {
+    opacity: 0;
+  }
+}

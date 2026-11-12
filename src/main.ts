@@ -289,7 +289,7 @@ async function start(): Promise<void> {
   window.addEventListener("popstate", () => {
     if (skipNextPop) skipNextPop = false;
     else if (viewer.open) viewer.close();
-    else render();
+    else morph(render);
   });
   render();
   observer.observe(sentinel);
@@ -366,10 +366,10 @@ async function pullRefresh(): Promise<string> {
       writeFilters({ ...filters, stack: filters.stack + 1 });
       return `Stack ${filters.stack + 1}`;
     }
-    render();
+    morph(render);
     return "That's every stack for today";
   }
-  if (added > 0 || before.size !== feed.items.length) render();
+  if (added > 0 || before.size !== feed.items.length) morph(render);
   return added > 0 ? `${added} new post${added === 1 ? "" : "s"}` : "Up to date";
 }
 
@@ -461,7 +461,7 @@ function addArchive(items: FeedItem[]): void {
   const next = rowsFor(filters, chipMatches);
   const shown = shownRowIds();
   const samePrefix = shown.every((id, i) => next[i] && rowId(next[i]) === id);
-  if (shown.length === 0 || (!samePrefix && scrollY < innerHeight)) return render();
+  if (shown.length === 0 || (!samePrefix && scrollY < innerHeight)) return morph(render);
 
   renderControls(filters, chipMatches);
   const onScreen = new Set(shown);
@@ -495,7 +495,7 @@ function toggleHidden(id: ExcludeId): void {
   try {
     localStorage.setItem("hide", JSON.stringify([...hidden]));
   } catch {}
-  render();
+  morph(render);
 }
 
 function loadLibrary(): Library {
@@ -572,7 +572,7 @@ function libraryArrived(next: Library): void {
   if (!feed) return;
   const view = readFilters().view;
   if (view !== "feed" || viewer.open) {
-    if (view !== "feed") render();
+    if (view !== "feed") morph(render);
     else refreshControls();
     return;
   }
@@ -697,8 +697,10 @@ function writeFilters(next: Filters): void {
   if (filters.people.size > 0) params.set("people", [...filters.people].join(","));
   const query = params.toString().replaceAll("%2C", ",");
   history.pushState(null, "", query ? `?${query}` : location.pathname);
-  render();
-  scrollTo({ top: 0 });
+  morph(() => {
+    render();
+    scrollTo({ top: 0 });
+  });
 }
 
 function activeFilterCount(filters: Filters): number {
@@ -729,6 +731,68 @@ const inFeed = (item: FeedItem) => !isShelved(library, "archive", item.id) && !i
 
 // Whether the feed shows a post under these filters, whether it came from the archive or the deck.
 const inView = (item: FeedItem, filters: Filters) => inFeed(item) && matchesChips(item, filters) && matchesShow(item, filters);
+
+// A change to what the page shows morphs rather than flashing. Cards and controls on screen in both
+// states glide to their new places, cards that leave fade, new ones fade in, and the rest cross-fades.
+// Only what is on screen takes part: a card arriving from far down the list would fly across it.
+// Nothing is named while a sheet or the viewer is open, since the morph draws above them.
+let morphs = 0;
+function morph(update: () => void): void {
+  if (!document.startViewTransition || document.hidden || list.childElementCount === 0) return update();
+  const run = ++morphs;
+  const named = new Set<HTMLElement>();
+  const nameOnScreen = () => {
+    if (document.querySelector("dialog:modal")) return;
+    const desktop = matchMedia("(min-width: 1024px)").matches;
+    const seen = new Set<string>();
+    const name = (el: HTMLElement, key: string, kind: string) => {
+      seen.add(key);
+      el.style.setProperty("view-transition-name", `m${hashKey(key)}`);
+      el.style.setProperty("view-transition-class", kind);
+      named.add(el);
+    };
+    // A card may run past the bottom of the screen, but not under the phone's sticky bar, which the
+    // morph would draw over.
+    const top = desktop ? 0 : Math.max(0, controls.getBoundingClientRect().bottom);
+    for (const card of list.querySelectorAll<HTMLElement>(":scope > .card[data-id]")) {
+      const r = card.getBoundingClientRect();
+      if (r.top >= top && r.top < innerHeight && !seen.has(`card:${card.dataset.id}`)) name(card, `card:${card.dataset.id}`, "card");
+    }
+    // Controls sit whole inside what shows them: the screen, the desktop rail as it scrolls, the strip.
+    for (const control of document.querySelectorAll<HTMLElement>(".rail [data-key], .controls [data-key]")) {
+      const key = `control:${control.dataset.key}`;
+      const r = control.getBoundingClientRect();
+      const frame = control.closest(desktop ? ".rail, .active-strip" : ".active-strip")?.getBoundingClientRect();
+      const inside = (f: { top: number; bottom: number; left: number; right: number }) => r.top >= f.top && r.bottom <= f.bottom && r.left >= f.left && r.right <= f.right;
+      if (r.height > 0 && !seen.has(key) && inside({ top: 0, bottom: innerHeight, left: 0, right: innerWidth }) && (!frame || inside(frame))) name(control, key, "control");
+    }
+  };
+  const unname = () => {
+    for (const el of named) {
+      el.style.removeProperty("view-transition-name");
+      el.style.removeProperty("view-transition-class");
+    }
+    named.clear();
+  };
+  // A morph cut short by this one may have left its names behind.
+  for (const el of document.querySelectorAll<HTMLElement>('[style*="view-transition-name"]')) named.add(el);
+  unname();
+  nameOnScreen();
+  const transition = document.startViewTransition(() => {
+    unname();
+    update();
+    nameOnScreen();
+  });
+  // A morph cut short by the next one rejects `ready`; the page has already updated.
+  transition.ready.catch(() => {});
+  void transition.finished.finally(() => run === morphs && unname());
+}
+
+function hashKey(key: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 0x01000193);
+  return (h >>> 0).toString(36);
+}
 
 function render(): void {
   const filters = readFilters();
@@ -919,6 +983,7 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
     "Clear",
     h("span", { className: "count" }, [String(active)]),
   ]);
+  clear.dataset.key = "clear";
   clear.addEventListener("click", () => clearFilters(filters));
   renderActiveStrip(filters, active);
 
@@ -930,6 +995,7 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
         icon("i-eye-off"),
         `No ${EXCLUDE_PRESETS[id].label}`,
       ]);
+      el.dataset.key = `hide:${id}`;
       el.setAttribute("aria-pressed", String(active));
       el.addEventListener("click", () => toggleHidden(id));
       return el;
