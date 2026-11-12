@@ -2159,44 +2159,17 @@ html:has(.viewer[open]) {
     padding-bottom: 18px;
   }
 
-  .masthead-row {
-    flex-wrap: wrap;
-  }
-
-  .shelves {
-    order: 3;
-    flex-basis: 100%;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* One row in the rail: the phone's circles sit beside the theme toggle, and the wordmark steps down to
+     1.1rem so all of it fits in 300px on one line. */
+  .brand {
     gap: 8px;
-    margin-top: 14px;
-  }
-
-  .shelf-link {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    width: auto;
-    height: 44px;
-    padding: 0 12px;
-    border-radius: 999px;
-    font-weight: 650;
-  }
-
-  .shelf-link .label {
-    display: inline;
-  }
-
-  .shelf-link .label {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 1.1rem;
     white-space: nowrap;
   }
 
-  /* The rail scrolls, so it clips anything past its edge; keep the corner badge inside the pill's width. */
-  .shelf-link .badge {
-    top: -7px;
-    right: 6px;
+  .sprout {
+    width: 34px;
+    height: 34px;
   }
 
   .viewer {

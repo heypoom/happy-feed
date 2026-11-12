@@ -814,6 +814,7 @@ function renderShelfLinks(view: View): void {
     badge.hidden = count === 0;
     link.setAttribute("aria-pressed", String(view === shelf));
     link.setAttribute("aria-label", `${SHELF_COPY[shelf].title}, ${count} saved`);
+    link.title = SHELF_COPY[shelf].title;
   }
 }
 
