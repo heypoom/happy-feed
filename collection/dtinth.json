@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "name": "dtinth's Picks",
+    "description": "Picks from dtinth's feed",
+    "mute": ["politics", "election", "trump", "AI psychosis"]
+  },
+  "entries": [
+    { "name": "Jake Archibald", "rss": "https://jakearchibald.com/posts.rss", "tags": ["Coding"] },
+    { "name": "Josh W. Comeau", "rss": "https://www.joshwcomeau.com/rss.xml", "tags": ["Creative Coding"] },
+    { "name": "Lea Verou", "rss": "https://lea.verou.me/feed.xml", "tags": ["HCI"] },
+    { "name": "overreacted", "description": "Dan Abramov", "rss": "https://overreacted.io/rss.xml", "tags": ["Coding"] },
+    { "name": "Jeff Geerling", "rss": "https://www.jeffgeerling.com/blog.xml", "tags": ["STEM"] },
+    { "name": "Adam Neely", "youtube": "https://www.youtube.com/@AdamNeely", "tags": ["Play"] },
+    { "name": "Andrew Huang", "youtube": "https://www.youtube.com/@andrewhuang", "tags": ["Play"] },
+    { "name": "Chen Hui Jing", "rss": "https://chenhuijing.com/rss.xml", "tags": ["Coding"] },
+    { "name": "Chee Aun", "rss": "https://cheeaun.com/blog/feed.xml", "tags": ["Coding"] },
+    { "name": "Li Hau Tan", "rss": "https://lihautan.com/rss.xml", "tags": ["Coding"] },
+    { "name": "Chris", "rss": "https://medium.com/feed/@chrisza", "tags": ["Coding"] }
+  ]
+}
