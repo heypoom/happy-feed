@@ -8,7 +8,7 @@ let dir: string;
 beforeEach(async () => (dir = await mkdtemp(join(tmpdir(), "fake-cf-"))));
 afterEach(() => rm(dir, { recursive: true, force: true }));
 
-const store = (hangs: number) => new CfR2Store("bucket", true, ["env", `FAKE_CF_DIR=${dir}`, `FAKE_CF_HANGS=${hangs}`, "scripts/fixtures/fake-cf.sh"], 500);
+const store = (hangs: number) => new CfR2Store("bucket", ["env", `FAKE_CF_DIR=${dir}`, `FAKE_CF_HANGS=${hangs}`, "scripts/fixtures/fake-cf.sh"], 500);
 const calls = async () => Number(await readFile(join(dir, "calls"), "utf8"));
 
 test("a CLI call that hangs is killed and tried again", async () => {

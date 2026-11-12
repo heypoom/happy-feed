@@ -9,6 +9,7 @@
 import { Glob } from "bun";
 import { parseArgs } from "node:util";
 import { BUCKET, CfR2Store } from "./cf-store";
+import { LocalR2Store } from "./local-store";
 import { parseCollection } from "./collection";
 import { createProviders } from "./providers";
 import { publish } from "./publish";
@@ -37,7 +38,7 @@ const chosen = sources.filter(
 );
 if (chosen.length === 0) throw new Error("no source matches those filters");
 
-const store = new CfR2Store(BUCKET, flags.local);
+const store = flags.local ? await LocalR2Store.open(BUCKET) : new CfR2Store(BUCKET);
 const now = new Date();
 console.log(`refreshing ${chosen.length} of ${sources.length} sources into the ${flags.local ? "local" : "live"} ${BUCKET} bucket`);
 
@@ -70,6 +71,7 @@ phase = "publish";
 console.log(`publishing every source's posts`);
 const { manifest, changed } = await publish(sources, { store, now });
 clearInterval(heartbeat);
+if (store instanceof LocalR2Store) await store.close();
 const items = manifest.chunks.reduce((sum, chunk) => sum + chunk.count, 0);
 for (const error of manifest.errors) console.warn(`  skip  ${error.entry} (${error.kind}): ${error.message}`);
 console.log(`published ${items} items in ${manifest.chunks.length} chunks (${changed.length} new), ${manifest.errors.length} errors`);

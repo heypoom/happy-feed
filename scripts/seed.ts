@@ -4,7 +4,8 @@
 // bucket holds what this checkout would publish. Run it again for newer data.
 import type { Manifest } from "../src/shared/types";
 import { fromWire, type WireItem } from "../src/shared/wire";
-import { BUCKET, CfR2Store } from "./cf-store";
+import { BUCKET } from "./cf-store";
+import { LocalR2Store } from "./local-store";
 import { writeFeed } from "./publish";
 
 const ORIGIN = "https://feed.poom.dev";
@@ -12,7 +13,9 @@ const ORIGIN = "https://feed.poom.dev";
 const manifest = await download<Manifest>("feed/manifest.json");
 const chunks = await Promise.all(manifest.chunks.map((chunk) => download<WireItem[]>(chunk.path)));
 const items = chunks.flat().map(fromWire);
-const { manifest: written } = await writeFeed(items, manifest.errors, { store: new CfR2Store(BUCKET, true), now: new Date() });
+const store = await LocalR2Store.open(BUCKET);
+const { manifest: written } = await writeFeed(items, manifest.errors, { store, now: new Date() });
+await store.close();
 console.log(`seeded ${items.length} items in ${written.chunks.length} chunks from the feed generated ${manifest.generatedAt}`);
 
 async function download<T>(path: string): Promise<T> {

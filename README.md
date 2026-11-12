@@ -83,7 +83,9 @@ To refresh from your machine instead (Substack rate-limits Cloudflare's network)
 
 - `--kind substack` or `--author "Name"` refresh only the matching sources (each can repeat).
 - `--full` reads every page.
-- `--local` writes to the local bucket that `bun run dev` serves instead of the live one.
+- `--local` writes to the local bucket that `bun run dev` serves instead of the live one, through one local runtime kept up for the whole run (`scripts/local-r2.mjs`, under Node).
+
+Each source prints as it finishes, and every 30 seconds a line names the sources and storage calls still running. A storage call that hangs is cut off (60 seconds for `cf`, 10 for the local runtime) and tried once more.
 
 ## Deploy
 

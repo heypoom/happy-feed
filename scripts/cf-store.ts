@@ -9,9 +9,9 @@ const CLI_CONCURRENCY = 8;
 // Healthy calls take one to four seconds; a minute leaves room for a big put on a slow connection.
 const CLI_TIMEOUT_MS = 60_000;
 
-// R2 through the cf CLI, which carries the owner's login (`npx cf auth login`) or, with --local, the
-// state the Vite dev server reads (.cloudflare/state). Objects written or read in this run are kept
-// in memory, so publish does not fetch back the records refresh just wrote.
+// The live R2 bucket through the cf CLI, which carries the owner's login (`npx cf auth login`). The local
+// bucket goes through LocalR2Store. Objects written or read in this run are kept in memory, so publish
+// does not fetch back the records refresh just wrote.
 export class CfR2Store implements Store {
   private readonly known = new Map<string, string>();
   private running = 0;
@@ -20,7 +20,6 @@ export class CfR2Store implements Store {
 
   constructor(
     private readonly bucket: string,
-    private readonly local: boolean,
     private readonly cli: string[] = ["node_modules/.bin/cf"],
     private readonly timeoutMs = CLI_TIMEOUT_MS,
   ) {}
@@ -75,8 +74,7 @@ export class CfR2Store implements Store {
     while (this.running >= CLI_CONCURRENCY) await new Promise<void>((resolve) => this.waiting.push(resolve));
     this.running++;
     try {
-      // A cf call now and then never exits (each --local call boots its own local runtime), so a stuck
-      // call is killed and tried once more, which has always gone through.
+      // A cf call now and then never exits, so a stuck call is killed and tried once more.
       try {
         return await this.spawn(args);
       } catch (error) {
@@ -91,7 +89,7 @@ export class CfR2Store implements Store {
   }
 
   private async spawn(args: string[]): Promise<{ stdout: string; stderr: string }> {
-    const command = [...this.cli, "r2", "objects", ...args, "--bucket-name", this.bucket, ...(this.local ? ["--local"] : [])];
+    const command = [...this.cli, "r2", "objects", ...args, "--bucket-name", this.bucket];
     const child = Bun.spawn(command, { stdout: "pipe", stderr: "pipe" });
     const call = { call: `cf r2 objects ${args.slice(0, 2).join(" ")}`, since: Date.now() };
     this.calls.add(call);
