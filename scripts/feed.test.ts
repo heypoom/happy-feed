@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
-import type { Feed, FeedItem, Manifest } from "../src/shared/types";
+import type { Feed, Manifest } from "../src/shared/types";
+import { isExcluded } from "../src/shared/excludes";
+import { fromWire, type WireItem } from "../src/shared/wire";
 import type { Collection } from "./collection";
 import type { RawItem } from "./feed-xml";
 import type { Depth, ProviderRegistry } from "./providers";
@@ -53,7 +55,7 @@ async function build(collections: Collection[], providers: ProviderRegistry, whe
   const sources = mergeSources(collections);
   await refresh(sources, { store, providers, now: when });
   const { manifest } = await publish(sources, { store, now: when });
-  const items = (await Promise.all(manifest.chunks.map((chunk) => store.get<FeedItem[]>(chunk.path)))).flatMap((chunk) => chunk ?? []);
+  const items = (await Promise.all(manifest.chunks.map((chunk) => store.get<WireItem[]>(chunk.path)))).flatMap((chunk) => chunk ?? []).map(fromWire);
   const { chunks: _, ...feed } = manifest;
   return { ...feed, items, manifest };
 }
@@ -304,4 +306,15 @@ test("Shorts stored before they were filtered out never reach the feed", async (
   ];
   const feed = await build([rssOnly], registry(videos));
   expect(feed.items.map((item) => item.title)).toEqual(["A tutorial"]);
+});
+
+test("a published video leaves its summary behind, and No AI still knows what it was about", async () => {
+  const store = new MemoryStore(() => now);
+  const video = { id: "v1", title: "Drawing with noise", summary: "Sponsored by an AI agent", url: "https://www.youtube.com/watch?v=aaa", image: "https://i.ytimg.com/vi/aaa/hqdefault.jpg", videoId: "aaa", publishedAt: "2026-11-01T00:00:00.000Z" };
+  const feed = await build([rssOnly], registry([video]), now, store);
+  const [wire] = (await store.get<WireItem[]>(feed.manifest.chunks[0]!.path))!;
+  expect(wire).not.toHaveProperty("summary");
+  expect(wire).not.toHaveProperty("url");
+  expect(feed.items[0]).toMatchObject({ url: video.url, image: video.image, topics: ["ai"] });
+  expect(isExcluded(feed.items[0]!, new Set(["ai"]))).toBe(true);
 });

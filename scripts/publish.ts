@@ -1,4 +1,5 @@
 import { SOURCE_KINDS, type Chunk, type FeedError, type FeedItem, type Manifest } from "../src/shared/types";
+import { toWire } from "../src/shared/wire";
 import { byNewest, dedupe } from "./aggregate";
 import { brandWithDeArrow, type DeArrowCache } from "./dearrow";
 import { isShort } from "./providers/youtube";
@@ -12,8 +13,7 @@ const DEARROW_PATH = "state/dearrow.json";
 const KEEP_UNREFERENCED_MS = 2 * 24 * 60 * 60 * 1000;
 
 // Builds the feed from the stored records of today's sources, in collection order so the same copy
-// of a duplicated post wins every time. Chunks are written before the manifest that names them, and
-// old chunks are deleted only after it.
+// of a duplicated post wins every time.
 export async function publish(sources: Source[], { store, now }: { store: Store; now: Date }): Promise<{ manifest: Manifest; changed: string[] }> {
   const records = (await Promise.all(sources.map((source) => store.get<SourceRecord>(recordPath(source.key))))).filter((r) => r !== undefined);
   const dearrow = (await store.get<DeArrowCache>(DEARROW_PATH)) ?? {};
@@ -21,11 +21,19 @@ export async function publish(sources: Source[], { store, now }: { store: Store;
   const kept = dedupe(records.flatMap((record) => record.items)).filter((item) => !isShort(item.url));
   const items = await brandWithDeArrow(kept.sort(byNewest), now, dearrow);
   await store.put(DEARROW_PATH, dearrow);
+  const errors = records.flatMap((record): FeedError[] => (record.status.ok ? [] : [{ entry: record.author, kind: record.kind, message: record.status.message }]));
+  return await writeFeed(items, errors, { store, now });
+}
 
+// Writes the published feed from posts already merged and branded, newest first. Chunks are written
+// before the manifest that names them, and old chunks are deleted only after it. `bun run seed`
+// calls it too, with the posts it downloaded.
+export async function writeFeed(items: FeedItem[], errors: FeedError[], { store, now }: { store: Store; now: Date }): Promise<{ manifest: Manifest; changed: string[] }> {
   const chunks: Chunk[] = await Promise.all(
     splitChunks(items, now).map(async ({ label, items }) => {
-      const path = `${CHUNK_PREFIX}${label}-${await hash8(JSON.stringify(items))}.json`;
-      await store.put(path, items);
+      const wire = items.map(toWire);
+      const path = `${CHUNK_PREFIX}${label}-${await hash8(JSON.stringify(wire))}.json`;
+      await store.put(path, wire);
       return { path, label, count: items.length, newest: items[0]!.publishedAt, oldest: items.at(-1)!.publishedAt };
     }),
   );
@@ -34,7 +42,7 @@ export async function publish(sources: Source[], { store, now }: { store: Store;
     generatedAt: now.toISOString(),
     tags: [...new Set(items.flatMap((item) => item.tags))].sort(),
     kinds: SOURCE_KINDS.filter((kind) => present.has(kind)),
-    errors: records.flatMap((record): FeedError[] => (record.status.ok ? [] : [{ entry: record.author, kind: record.kind, message: record.status.message }])),
+    errors,
     chunks,
   };
   const previous = new Set((await store.get<Manifest>(MANIFEST_PATH))?.chunks.map((chunk) => chunk.path));

@@ -1,3 +1,5 @@
+import type { ExcludeId } from "./excludes";
+
 export type SourceKind = "youtube" | "rss" | "substack" | "website" | "bluesky" | "mastodon" | "twitter" | "facebook";
 
 export const SOURCE_KINDS: readonly SourceKind[] = [
@@ -36,6 +38,8 @@ export type FeedItem = {
   summary?: string;
   image?: string;
   videoId?: string;
+  // The exclude presets the post is about, decided at publish from its full text (see wire.ts).
+  topics?: ExcludeId[];
   publishedAt: string;
   author: string;
   tags: string[];

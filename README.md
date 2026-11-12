@@ -75,7 +75,7 @@ YouTube channel feeds hold only the latest 15 uploads. With a `YOUTUBE_API_KEY`,
 The site is a Cloudflare Worker at `feed.poom.dev` (`cloudflare.config.ts`, `worker/index.ts`) with an R2 bucket, `happy-feed`, bound as `FEED`. A cron runs the Worker at minute 17 of every hour:
 
 1. **Refresh.** Each source has a record in `sources/<key>.json` with every post ever fetched from it and how the last fetch went. A source that has worked before is read at head depth (the newest page of a Substack, Bluesky or Mastodon archive). New posts join the stored ones, and a failed fetch keeps them. The Sunday 03:17 UTC run reads every page.
-2. **Publish.** The Worker merges the records, applies DeArrow, and writes `feed/items-<label>-<hash>.json` chunks: `recent` (since the 1st of last month, UTC), then one per year. It writes `feed/manifest.json` last, and deletes chunks that nothing has referenced for 2 days.
+2. **Publish.** The Worker merges the records, applies DeArrow, and writes `feed/items-<label>-<hash>.json` chunks: `recent` (since the 1st of last month, UTC), then one per year. Videos go out without their summary, which no card shows, and without the URL and thumbnail their video id already gives; every post carries the exclude presets its full text matched (`topics`), so No AI hides the same posts (`src/shared/wire.ts`). It writes `feed/manifest.json` last, and deletes chunks that nothing has referenced for 2 days.
 
 The client fetches the manifest on every load, then the `recent` chunk, and paints. The rest of the archive arrives behind it. A link with a filter or a shelf waits for every chunk, because its counts and people need the whole feed. Chunks are named by their content, so a phone downloads an unchanged year once.
 

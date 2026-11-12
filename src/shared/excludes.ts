@@ -1,4 +1,5 @@
-type Excludable = { title: string; originalTitle?: string; summary?: string };
+// `topics` is set at publish, from the full text, for posts sent without their summary.
+type Excludable = { title: string; originalTitle?: string; summary?: string; topics?: readonly ExcludeId[] };
 
 export const EXCLUDE_PRESETS = {
   ai: {
@@ -25,13 +26,17 @@ const PATTERNS = Object.fromEntries(
 ) as Record<ExcludeId, { hide: RegExp; keep?: RegExp }>;
 
 export function isExcluded(item: Excludable, active: ReadonlySet<ExcludeId>): boolean {
+  return active.size > 0 && (item.topics ?? topicsOf(item)).some((id) => active.has(id));
+}
+
+// Every preset a post is about.
+export function topicsOf(item: Excludable): ExcludeId[] {
   // A calmer DeArrow title must not let a post past a topic it is really about.
   const text = `${item.title}\n${item.originalTitle ?? ""}\n${item.summary ?? ""}`;
-  for (const id of active) {
+  return EXCLUDE_IDS.filter((id) => {
     const { hide, keep } = PATTERNS[id];
     // A keep phrase only counts in the title: "No AI. Build cat in C" is the point of the post,
     // while "...to prove a point: No AI." in a summary about AI is still a post about AI.
-    if (hide.test(text) && !keep?.test(item.originalTitle ?? item.title)) return true;
-  }
-  return false;
+    return hide.test(text) && !keep?.test(item.originalTitle ?? item.title);
+  });
 }

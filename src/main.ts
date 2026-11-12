@@ -5,6 +5,7 @@ import { dayKey, dealHand, dealStack, orderFeed } from "./shared/order";
 import { blueskyApiUrl, fromBluesky, fromMastodon, mastodonApiUrl, type PostView } from "./shared/post-view";
 import { normalizePassphrase, SYNC_PATH, syncKey } from "./shared/sync";
 import { FORMAT_OF, type Feed, type FeedItem, type Format, type Manifest, type SourceKind } from "./shared/types";
+import { fromWire, type WireItem } from "./shared/wire";
 
 type View = "feed" | Shelf;
 // New is this week, newest first, with today's hand of older posts woven in. Anytime is today's stack
@@ -256,10 +257,10 @@ async function start(): Promise<void> {
     const { chunks, ...manifest } = await getJson<Manifest>("feed/manifest.json", { cache: "no-cache" });
     const [recent, ...older] = chunks;
     loadArchive = async () =>
-      (await Promise.allSettled(older.map((chunk) => getJson<FeedItem[]>(chunk.path)))).flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+      (await Promise.allSettled(older.map((chunk) => loadPosts(chunk.path)))).flatMap((result) => (result.status === "fulfilled" ? result.value : []));
     const filters = readFilters();
     const whole = filters.view !== "feed" || filters.mode === "anytime" || activeFilterCount(filters) > 0;
-    const [first, rest] = await Promise.all([recent ? getJson<FeedItem[]>(recent.path) : [], whole ? loadArchive() : []]);
+    const [first, rest] = await Promise.all([recent ? loadPosts(recent.path) : [], whole ? loadArchive() : []]);
     feed = { ...manifest, items: [...first, ...rest] };
     archivePending = !whole && older.length > 0;
   } catch {
@@ -290,7 +291,7 @@ async function start(): Promise<void> {
 async function reloadFeed(): Promise<boolean> {
   const { chunks, ...manifest } = await getJson<Manifest>("feed/manifest.json", { cache: "no-cache" });
   if (manifest.generatedAt === feed.generatedAt && !archivePending) return false;
-  const loaded = await Promise.allSettled(chunks.map((chunk) => getJson<FeedItem[]>(chunk.path)));
+  const loaded = await Promise.allSettled(chunks.map((chunk) => loadPosts(chunk.path)));
   feedVersion++;
   archivePending = false;
   feed = { ...manifest, items: loaded.flatMap((result) => (result.status === "fulfilled" ? result.value : [])) };
@@ -387,6 +388,11 @@ function pullToRefresh(): void {
   };
   addEventListener("touchend", () => void end());
   addEventListener("touchcancel", () => void end());
+}
+
+// Every published post enters the client here, so the rest of it sees whole FeedItems.
+async function loadPosts(path: string): Promise<FeedItem[]> {
+  return (await getJson<WireItem[]>(path)).map(fromWire);
 }
 
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -1046,7 +1052,7 @@ function renderCard(raw: FeedItem): HTMLElement {
   const item = branded(raw);
   const format = FORMAT_OF[item.kind];
   const card =
-    format === "watch" && item.image ? renderWatch(item) : format === "post" ? renderPost(item) : renderRead(item);
+    format === "watch" && (item.videoId || item.image) ? renderWatch(item) : format === "post" ? renderPost(item) : renderRead(item);
   card.dataset.hue = hueFor(item);
   card.dataset.id = item.id;
   if (needsBranding(item)) void fetchBranding(raw);
