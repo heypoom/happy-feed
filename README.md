@@ -57,9 +57,9 @@ An entry needs at least one source. Every post a source publishes is kept, with 
 | Key | Reads | Depth |
 | --- | --- | --- |
 | `youtube` | The channel's feed (`@handle` or `/channel/UC…`) | Every long-form video with `YOUTUBE_API_KEY`, else the latest 15. Never Shorts |
-| `rss` | RSS or Atom | Whatever the feed holds |
+| `rss` | RSS or Atom | Whatever the feed holds. A full read of a WordPress feed pages back through `?paged=N` |
 | `website` | The feed a page advertises | Same |
-| `archive` | An index page linking every post (`/YYYY/MM/DD/…`), for blogs whose RSS holds only recent posts. Pair it with `rss`. | Every linked post |
+| `archive` | An index page linking every post (`/YYYY/MM/DD/…`, or `/YYYY/MM/…` dated from the post's `article:published_time`), for blogs whose RSS holds only recent posts. Pair it with `rss`. | Every linked post |
 | `substack` | The publication's archive API | Every post |
 | `bluesky` | `https://bsky.app/profile/<handle>` via the public API, no replies or reposts | Every post |
 | `mastodon` | `https://<server>/@<user>` via the server's API, no replies or boosts | Every post |

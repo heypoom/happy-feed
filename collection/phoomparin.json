@@ -94,7 +94,7 @@
     { "name": "Matt Webb", "description": "Interconnected", "rss": "https://interconnected.org/home/feed", "tags": ["HCI"] },
     { "name": "Marcin Wichary", "bluesky": "https://bsky.app/profile/aresluna.org", "tags": ["Design"] },
     { "name": "Robin Sloan", "rss": "https://www.robinsloan.com/feed.xml", "tags": ["Play"] },
-    { "name": "Low-tech Magazine", "rss": "https://solar.lowtechmagazine.com/posts/index.xml", "tags": ["STEM"] },
+    { "name": "Low-tech Magazine", "rss": "https://solar.lowtechmagazine.com/posts/index.xml", "archive": "https://solar.lowtechmagazine.com/archives/", "tags": ["STEM"] },
     { "name": "The Public Domain Review", "rss": "https://publicdomainreview.org/rss.xml", "tags": ["Design"] },
     { "name": "A Collection of Unmitigated Pedantry", "description": "Bret Devereaux", "rss": "https://acoup.blog/feed/", "tags": ["Play"] },
     { "name": "jan Misali", "youtube": "https://www.youtube.com/@HBMmaster", "tags": ["Play"] },
