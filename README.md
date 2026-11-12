@@ -13,7 +13,7 @@ A calm, endless feed of creators I chose, served at https://feed.poom.dev. YouTu
 
 ```sh
 bun install
-bun run refresh -- --local   # fetches every source into the local R2 bucket that dev serves
+bun run seed       # copies the published feed into the local R2 bucket that dev serves
 bun run dev        # http://localhost:5173, the site and the Worker
 bun test
 bun run typecheck  # the client and scripts, then the Worker against the Workers runtime types
@@ -21,6 +21,15 @@ bun run e2e        # Playwright on phone and desktop, against a fixture feed wit
 bun run build      # the site and the Worker in .cloudflare/output/
 bun run og         # re-renders public/og.png from scripts/og/og.html
 ```
+
+### A feed for local dev
+
+`bun run dev` serves the feed from a local R2 bucket in `.cloudflare/state/`, which starts empty. Until it has a feed, the page says "The feed is napping". Fill it one of two ways:
+
+- `bun run seed` copies the published manifest and chunks from feed.poom.dev. It takes seconds and fetches nothing from the sources. Run it again for newer posts.
+- `bun run refresh -- --local` builds the feed from the sources themselves, like the hourly run. It's slower and sends requests to every source, so use it when you're changing the fetch or publish code, or testing a new source (`--author "Name"` limits it to one).
+
+Deleting `.cloudflare/state/` empties the bucket again, including anything Sync wrote locally.
 
 ## Collections
 
