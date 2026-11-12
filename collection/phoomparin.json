@@ -2,7 +2,7 @@
   "metadata": {
     "name": "Poom's Faves",
     "description": "Poom's favourite tech content creators",
-    "mute": ["politics", "election", "trump", "AI psychosis"]
+    "mute": ["election", "trump", "AI psychosis"]
   },
   "entries": [
     { "name": "LaurieWired", "bluesky": "https://bsky.app/profile/lauriewired.bsky.social", "tags": ["Computer Science"] },

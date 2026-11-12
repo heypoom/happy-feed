@@ -2,7 +2,7 @@
   "metadata": {
     "name": "dtinth's Picks",
     "description": "Picks from dtinth's feed",
-    "mute": ["politics", "election", "trump", "AI psychosis"]
+    "mute": ["election", "trump", "AI psychosis"]
   },
   "entries": [
     { "name": "Jake Archibald", "rss": "https://jakearchibald.com/posts.rss", "tags": ["Coding"] },
