@@ -28,7 +28,7 @@
     { "name": "Tom Scott", "youtube": "https://www.youtube.com/@TomScottGo", "tags": ["STEM"] },
     { "name": "Mellinn", "youtube": "https://www.youtube.com/@MIGHTYMELINN", "tags": ["Design"] },
     { "name": "CGP Grey", "youtube": "https://www.youtube.com/@CGPGrey", "tags": ["STEM"] },
-    { "name": "Chris", "youtube": "https://www.youtube.com/@chrisza4", "tags": ["Coding"] },
+    { "name": "Chris", "youtube": "https://www.youtube.com/@chrisza4", "rss": "https://medium.com/feed/@chrisza", "tags": ["Coding"] },
     { "name": "Computerphile", "youtube": "https://www.youtube.com/@Computerphile", "tags": ["STEM"] },
     { "name": "TheGrayCuber", "youtube": "https://www.youtube.com/@TheGrayCuber", "tags": ["Math"] },
     { "name": "NanoRooms", "youtube": "https://www.youtube.com/@Nanorooms", "tags": ["STEM"] },
