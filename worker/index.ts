@@ -3,6 +3,8 @@ import { createProviders } from "../scripts/providers";
 import { MANIFEST_PATH, publish } from "../scripts/publish";
 import { mergeSources, refresh } from "../scripts/sources";
 import type { Store, StoredObject } from "../scripts/store";
+import { SYNC_PATH } from "../src/shared/sync";
+import { handleSync } from "./sync";
 
 // Cron runs get 15 minutes. Sources not started by then wait for the next run, so the feed still publishes.
 const REFRESH_BUDGET_MS = 10 * 60 * 1000;
@@ -36,6 +38,7 @@ export default {
   // are named by their content, so they never change.
   async fetch(request, env) {
     const key = new URL(request.url).pathname.slice(1);
+    if (key.startsWith(SYNC_PATH)) return handleSync(request, env.FEED, key.slice(SYNC_PATH.length));
     if (!key.startsWith("feed/")) return new Response("Not found", { status: 404 });
     const object = await env.FEED.get(key, { onlyIf: request.headers });
     if (!object) return new Response("Not found", { status: 404 });

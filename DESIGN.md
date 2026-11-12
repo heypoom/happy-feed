@@ -326,6 +326,10 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 - **Character:** the sprout's stopping point.
 - A surface card with 32px corners and the soft shadow, holding a centered 96px sprout, a display title, Literata body copy, an optional pill button, and optional fine print. The "happy" mood hops and waves its leaves once when it scrolls into view. The "sleepy" mood closes its eyes and is used for the end, empty and error states.
 
+### Sync Line and Sync Sheet
+- Under a shelf's title: an 18px cloud, a muted status ("On this device only.", "Synced across your devices." with a leaf-green cloud, or "Couldn't sync just now.") and an accent text button, "Sync devices" or "Sync settings".
+- The sheet is a short bottom sheet on phones and a 440px centred card from 1024px: a display title, Literata body, one pill input on the ground colour, fine print, and a full-width pill button. Once syncing, it shows the words in a ground-coloured block so the next device can copy them, and a quiet "Stop syncing on this device".
+
 ### Masthead
 - The 40px sprout and the wordmark on the left (34px and 1.3rem below 400px), the Favourites and Archive circles and the 44px circular theme toggle on the right. On hover the toggle rotates -20 degrees, and the sun and moon icons cross-fade with a rotation.
 

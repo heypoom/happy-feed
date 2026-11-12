@@ -1,4 +1,4 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type BrowserContext } from "@playwright/test";
 import type { Chunk, FeedItem, Manifest } from "../src/shared/types";
 
 const DAY = 86_400_000;
@@ -44,17 +44,22 @@ export const MANIFEST: Manifest = {
 
 // Every test runs against MANIFEST and CHUNKS and never reaches the network: the real feed is built by
 // scraping other people's sites, and thumbnails, fonts and post APIs live on third-party hosts.
+// Sync requests reach the dev Worker, which keeps them in its local bucket.
+export async function stubNetwork(context: BrowserContext): Promise<void> {
+  await context.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    if (url.hostname !== "localhost") return route.abort("blockedbyclient");
+    if (url.pathname === "/feed/manifest.json") return route.fulfill({ json: MANIFEST });
+    const items = CHUNKS[url.pathname.slice(1)];
+    if (items) return route.fulfill({ json: items });
+    return route.continue();
+  });
+}
+
 export const test = base.extend<{ stubNetwork: void }>({
   stubNetwork: [
     async ({ context }, use) => {
-      await context.route("**/*", (route) => {
-        const url = new URL(route.request().url());
-        if (url.hostname !== "localhost") return route.abort("blockedbyclient");
-        if (url.pathname === "/feed/manifest.json") return route.fulfill({ json: MANIFEST });
-        const items = CHUNKS[url.pathname.slice(1)];
-        if (items) return route.fulfill({ json: items });
-        return route.continue();
-      });
+      await stubNetwork(context);
       await use();
     },
     { auto: true },

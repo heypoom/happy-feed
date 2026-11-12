@@ -1424,6 +1424,160 @@ html:has(.filter-sheet[open]) {
   font-variant-numeric: tabular-nums;
 }
 
+.shelf-head {
+  flex-wrap: wrap;
+}
+
+/* Sync line: under a shelf's title, the quiet way into syncing. */
+.sync-line {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.sync-line .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.sync-line[data-state="synced"] .icon {
+  color: var(--leaf-2);
+}
+
+.sync-open {
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Sync sheet: a short bottom sheet on phones, a centred card from 1024px. */
+html:has(.sync-sheet[open]) {
+  overflow: hidden;
+}
+
+.sync-sheet {
+  width: 100%;
+  max-width: 100%;
+  margin: auto 0 0;
+  padding: 18px var(--gutter) max(20px, env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 -12px 40px -16px rgb(20 18 42 / 0.45);
+}
+
+.sync-sheet[open] {
+  animation: sheet-up 0.45s var(--ease-out);
+}
+
+.sync-sheet::backdrop {
+  background: rgb(20 18 42 / 0.5);
+}
+
+.sync-sheet[open]::backdrop {
+  animation: fade-in 0.3s ease-out;
+}
+
+.sync-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sync-head h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.sync-guest,
+.sync-on {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.sync-guest[hidden],
+.sync-on[hidden] {
+  display: none;
+}
+
+.sync-sheet p {
+  margin: 0;
+  font-family: var(--reading);
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.sync-sheet .fine {
+  font-family: var(--display);
+  font-size: 0.8rem;
+}
+
+.sync-label {
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.sync-words {
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--ground);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.sync-words::placeholder {
+  color: var(--muted);
+}
+
+.sync-sheet .button {
+  min-height: 48px;
+  font-size: 1rem;
+}
+
+.sync-sheet .button.quiet {
+  background: var(--ground);
+  box-shadow: none;
+}
+
+.sync-sheet .sync-status {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sync-sheet[data-state="offline"] .sync-status {
+  color: var(--muted);
+}
+
+.sync-sheet .sync-current {
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--display);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
 .button.quiet {
   background: var(--surface);
   color: var(--text);
@@ -2052,6 +2206,14 @@ html:has(.viewer[open]) {
 
 /* Desktop rail: a tighter tab row, the clear chip in the chip list, a denser people list. */
 @media (min-width: 1024px) {
+  .sync-sheet {
+    width: min(440px, calc(100% - 48px));
+    margin: auto;
+    padding: 24px 28px 28px;
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+  }
+
   .tabs .tab {
     min-height: 34px;
   }

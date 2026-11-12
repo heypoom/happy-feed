@@ -4,7 +4,7 @@ A calm, endless feed of creators I chose, served at https://feed.poom.dev. YouTu
 
 - **Watch, Read and Posts tabs**, with filters by tag, source and person. Filters live in the URL; Clear (or Esc) resets them.
 - **No AI** hides posts that mention AI, unless the title says "No AI".
-- **Favourites and Archive.** Marking a post read or watched moves it out of the feed. Both lists stay in your browser and don't sync between devices.
+- **Favourites and Archive.** Marking a post read or watched moves it out of the feed. Both lists stay in your browser. To share them across devices, open Favourites or Archive, tap Sync devices, and type the same sync words on each device; there is no account, and guests keep everything on the device.
 - **In-app viewer** for Bluesky and Mastodon posts: full text and images, never replies.
 - **"You're all caught up"** after this week's posts, then the full archive below.
 - **Calmer YouTube titles and thumbnails** from [DeArrow](https://dearrow.ajay.app)'s community submissions, where they exist. Hover a title to see the original.

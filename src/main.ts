@@ -1,14 +1,17 @@
 import { EXCLUDE_IDS, EXCLUDE_PRESETS, isExcluded, type ExcludeId } from "./shared/excludes";
 import { assignHues, hueOf, type Hue } from "./shared/hues";
-import { emptyLibrary, isShelved, parseLibrary, shelfItems, SHELVES, toggleShelf, type Library, type Shelf } from "./shared/library";
+import { emptyLibrary, isShelved, mergeLibraries, parseLibrary, sameLibrary, shelfItems, SHELVES, toggleShelf, type Library, type Shelf } from "./shared/library";
 import { orderFeed } from "./shared/order";
 import { blueskyApiUrl, fromBluesky, fromMastodon, mastodonApiUrl, type PostView } from "./shared/post-view";
+import { normalizePassphrase, SYNC_PATH, syncKey } from "./shared/sync";
 import { FORMAT_OF, type Feed, type FeedItem, type Format, type Manifest, type SourceKind } from "./shared/types";
 
 type View = "feed" | Shelf;
 type Filters = { view: View; show: Format | ""; tags: Set<string>; kind: Set<string>; people: Set<string> };
 type ChipGroup = "tags" | "kind" | "people";
 type Row = { type: "card"; item: FeedItem } | { type: "caught-up" };
+type SyncSetup = { passphrase: string; key: string };
+type SyncStatus = "synced" | "syncing" | "offline";
 
 const PAGE_SIZE = 20;
 const FORMATS: Record<Format, { label: string; icon: string }> = {
@@ -68,6 +71,15 @@ let hues = new Map<string, Hue>();
 let hidden = loadHidden();
 let hiddenCount = 0;
 let library = loadLibrary();
+// Guests keep their lists on this device only. With a passphrase, every change is sent at once and
+// the device pulls whenever it comes back into view, and every minute while it stays in view.
+let syncSetup = loadSyncSetup();
+let syncStatus: SyncStatus = "syncing";
+let syncInFlight = false;
+let syncAgain = false;
+let pushTimer: ReturnType<typeof setTimeout> | undefined;
+const SYNC_EVERY_MS = 60_000;
+const syncSheet = document.querySelector<HTMLDialogElement>(".sync-sheet")!;
 let rows: Row[] = [];
 let rendered = 0;
 // The recent chunk is on screen and older ones are still loading, so the end of the list is not the end.
@@ -134,7 +146,7 @@ viewer.addEventListener("pointerup", (event) => {
 });
 window.addEventListener("keydown", (event: KeyboardEvent) => {
   // With the sheet open, Esc belongs to the sheet (it closes it) rather than clearing filters.
-  if (event.key !== "Escape" || viewer.open || sheet.open || !feed) return;
+  if (event.key !== "Escape" || viewer.open || sheet.open || syncSheet.open || !feed) return;
   const filters = readFilters();
   if (activeFilterCount(filters) > 0) clearFilters(filters);
 });
@@ -174,6 +186,22 @@ sheet.addEventListener("pointerup", (event) => {
   sheetPressOnBackdrop = false;
 });
 dragToClose(sheet.querySelector<HTMLElement>(".sheet-head")!);
+syncSheet.querySelector("form")!.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void startSyncing(syncSheet.querySelector<HTMLInputElement>(".sync-words")!.value);
+});
+syncSheet.querySelector(".sync-stop")!.addEventListener("click", stopSyncing);
+syncSheet.querySelector(".sync-close")!.addEventListener("click", () => syncSheet.close());
+syncSheet.addEventListener("click", (event) => {
+  if (event.target === syncSheet) syncSheet.close();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") void syncNow();
+});
+setInterval(() => {
+  if (document.visibilityState === "visible") void syncNow();
+}, SYNC_EVERY_MS);
+void syncNow();
 railLayout.addEventListener("change", () => {
   if (railLayout.matches && sheet.open) sheet.close();
   controls.classList.remove("tucked");
@@ -294,11 +322,155 @@ function loadLibrary(): Library {
 }
 
 function saveLibrary(next: Library): void {
+  storeLibrary(next);
+  if (!syncSetup) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => void syncNow(), 400);
+}
+
+function storeLibrary(next: Library): void {
   library = next;
   try {
     localStorage.setItem("library:v1", JSON.stringify(next));
   } catch {}
   renderShelfLinks(readFilters().view);
+}
+
+function loadSyncSetup(): SyncSetup | undefined {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem("sync") ?? "null");
+    if (raw && typeof raw === "object" && "passphrase" in raw && "key" in raw && typeof raw.passphrase === "string" && typeof raw.key === "string") {
+      return { passphrase: raw.passphrase, key: raw.key };
+    }
+  } catch {}
+  return undefined;
+}
+
+// One request sends this device's library and brings back everyone's merged. Changes made while it
+// was in flight merge on top, and a change that arrives meanwhile sends again once it lands.
+async function syncNow(): Promise<void> {
+  const setup = syncSetup;
+  if (!setup) return;
+  if (syncInFlight) {
+    syncAgain = true;
+    return;
+  }
+  syncInFlight = true;
+  setSyncStatus("syncing");
+  try {
+    const response = await fetch(`${import.meta.env.BASE_URL}${SYNC_PATH}${setup.key}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(library),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const remote = parseLibrary(await response.json());
+    if (syncSetup?.key !== setup.key) return;
+    const merged = mergeLibraries(library, remote);
+    if (!sameLibrary(merged, library)) libraryArrived(merged);
+    setSyncStatus("synced");
+  } catch {
+    if (syncSetup?.key === setup.key) setSyncStatus("offline");
+  } finally {
+    syncInFlight = false;
+    if (syncAgain) {
+      syncAgain = false;
+      void syncNow();
+    }
+  }
+}
+
+// Another device changed the lists. A shelf re-renders; the feed keeps its place and only updates
+// the cards on screen, so a pull never yanks the scroll. Posts archived elsewhere fold away.
+function libraryArrived(next: Library): void {
+  storeLibrary(next);
+  if (!feed) return;
+  const view = readFilters().view;
+  if (view !== "feed" || viewer.open) {
+    if (view !== "feed") render();
+    else refreshControls();
+    return;
+  }
+  const byId = new Map(feed.items.map((item) => [item.id, item]));
+  for (const card of list.querySelectorAll<HTMLElement>(".card[data-id]")) {
+    const item = byId.get(card.dataset.id!);
+    if (!item) continue;
+    if (isShelved(library, "archive", item.id)) collapseOut(card);
+    else card.replaceWith(renderCard(item));
+  }
+  rows = [...rows.slice(0, rendered), ...rows.slice(rendered).filter((row) => row.type !== "card" || !isShelved(library, "archive", row.item.id))];
+  refreshControls();
+}
+
+async function startSyncing(words: string): Promise<void> {
+  const passphrase = normalizePassphrase(words);
+  if (passphrase.length < 8) return;
+  syncSetup = { passphrase, key: await syncKey(passphrase) };
+  try {
+    localStorage.setItem("sync", JSON.stringify(syncSetup));
+  } catch {}
+  renderSyncSheet();
+  await syncNow();
+  if (syncStatus === "synced") syncSheet.close();
+}
+
+// This device keeps a copy of what it has, as a guest again; nothing is deleted anywhere.
+function stopSyncing(): void {
+  syncSetup = undefined;
+  clearTimeout(pushTimer);
+  try {
+    localStorage.removeItem("sync");
+  } catch {}
+  syncSheet.close();
+  renderSyncLines();
+}
+
+function setSyncStatus(status: SyncStatus): void {
+  syncStatus = status;
+  renderSyncLines();
+  if (syncSheet.open) renderSyncSheet();
+}
+
+const SYNC_COPY: Record<SyncStatus | "guest", string> = {
+  guest: "On this device only.",
+  syncing: "Syncing with your other devices…",
+  synced: "Synced across your devices.",
+  offline: "Couldn't sync just now. It will try again.",
+};
+
+function syncLine(): HTMLElement {
+  const line = h("p", { className: "sync-line" }, []);
+  fillSyncLine(line);
+  return line;
+}
+
+function fillSyncLine(line: HTMLElement): void {
+  const state = syncSetup ? syncStatus : "guest";
+  line.dataset.state = state;
+  const button = h("button", { type: "button", className: "sync-open", ariaHasPopup: "dialog" }, [syncSetup ? "Sync settings" : "Sync devices"]);
+  button.addEventListener("click", openSyncSheet);
+  line.replaceChildren(icon("i-cloud"), h("span", {}, [SYNC_COPY[state]]), button);
+}
+
+function renderSyncLines(): void {
+  for (const line of list.querySelectorAll<HTMLElement>(".sync-line")) fillSyncLine(line);
+}
+
+function openSyncSheet(): void {
+  renderSyncSheet();
+  syncSheet.showModal();
+  if (!syncSetup) syncSheet.querySelector<HTMLInputElement>(".sync-words")!.focus();
+}
+
+function renderSyncSheet(): void {
+  const input = syncSheet.querySelector<HTMLInputElement>(".sync-words")!;
+  const on = Boolean(syncSetup);
+  syncSheet.dataset.state = on ? syncStatus : "guest";
+  syncSheet.querySelector<HTMLElement>(".sync-guest")!.hidden = on;
+  syncSheet.querySelector<HTMLElement>(".sync-on")!.hidden = !on;
+  syncSheet.querySelector<HTMLElement>(".sync-status")!.textContent = on ? SYNC_COPY[syncStatus] : "";
+  syncSheet.querySelector<HTMLElement>(".sync-current")!.textContent = syncSetup?.passphrase ?? "";
+  if (on) input.value = "";
 }
 
 function hueFor(item: FeedItem): Hue {
@@ -418,6 +590,7 @@ function shelfHead(shelf: Shelf, count: number): HTMLElement {
   return h("header", { className: "shelf-head" }, [
     h("h2", {}, [SHELF_COPY[shelf].title, h("span", { className: "count" }, [String(count)])]),
     back,
+    syncLine(),
   ]);
 }
 
