@@ -1,15 +1,20 @@
 import { EXCLUDE_IDS, EXCLUDE_PRESETS, isExcluded, type ExcludeId } from "./shared/excludes";
 import { assignHues, hueOf, type Hue } from "./shared/hues";
-import { emptyLibrary, isShelved, mergeLibraries, parseLibrary, sameLibrary, shelfItems, SHELVES, toggleShelf, type Library, type Shelf } from "./shared/library";
-import { orderFeed } from "./shared/order";
+import { emptyLibrary, isShelved, mergeLibraries, parseLibrary, recordDealt, sameLibrary, shelfItems, SHELVES, toggleShelf, type Library, type Shelf } from "./shared/library";
+import { dayKey, dealHand, dealStack, orderFeed } from "./shared/order";
 import { blueskyApiUrl, fromBluesky, fromMastodon, mastodonApiUrl, type PostView } from "./shared/post-view";
 import { normalizePassphrase, SYNC_PATH, syncKey } from "./shared/sync";
 import { FORMAT_OF, type Feed, type FeedItem, type Format, type Manifest, type SourceKind } from "./shared/types";
 
 type View = "feed" | Shelf;
-type Filters = { view: View; show: Format | ""; tags: Set<string>; kind: Set<string>; people: Set<string> };
+// New is this week, newest first, with today's hand of older posts woven in. Anytime is today's stack
+// from every year; `stack` counts the stacks dealt so far today.
+type Mode = "new" | "anytime";
+type Filters = { view: View; mode: Mode; stack: number; show: Format | ""; tags: Set<string>; kind: Set<string>; people: Set<string> };
 type ChipGroup = "tags" | "kind" | "people";
-type Row = { type: "card"; item: FeedItem } | { type: "caught-up" };
+type Row = { type: "card"; item: FeedItem } | { type: "caught-up"; hand: number } | { type: "stack-end"; stack: number; count: number; more: boolean };
+// How a dealt card shows its date: hand cards say "From Mar 2021", stack cards just "Mar 2021".
+type DealtAs = "hand" | "stack";
 type SyncSetup = { passphrase: string; key: string };
 type SyncStatus = "synced" | "syncing" | "offline";
 
@@ -59,6 +64,7 @@ const NETWORK: Partial<Record<SourceKind, { name: string; load: (item: FeedItem)
   mastodon: { name: "Mastodon", load: (item) => loadPost(mastodonApiUrl(item.url), fromMastodon) },
 };
 const shelfLinks = [...document.querySelectorAll<HTMLButtonElement>(".shelf-link")];
+const modeButtons = [...document.querySelectorAll<HTMLButtonElement>(".mode")];
 const SHELF_COPY: Record<Shelf, { title: string; empty: string }> = {
   favourites: { title: "Favourites", empty: "Tap the heart on anything you love and it will wait for you here." },
   archive: { title: "Archive", empty: "Mark posts as read or watched and they rest here, out of your feed." },
@@ -82,6 +88,7 @@ const SYNC_EVERY_MS = 60_000;
 const syncSheet = document.querySelector<HTMLDialogElement>(".sync-sheet")!;
 let rows: Row[] = [];
 let rendered = 0;
+let dealtAs = new Map<string, DealtAs>();
 // The recent chunk is on screen and older ones are still loading, so the end of the list is not the end.
 let archivePending = false;
 
@@ -117,6 +124,15 @@ toggle.addEventListener("click", () => {
   } catch {}
   syncTheme();
 });
+
+for (const button of modeButtons) {
+  button.addEventListener("click", () => {
+    const filters = readFilters();
+    writeFilters({ ...filters, view: "feed", mode: button.dataset.mode as Mode });
+  });
+}
+renderModes(readFilters());
+requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector(".modes")!.classList.add("ready")));
 
 for (const link of shelfLinks) {
   link.addEventListener("click", () => {
@@ -229,7 +245,7 @@ async function start(): Promise<void> {
     loadArchive = async () =>
       (await Promise.allSettled(older.map((chunk) => getJson<FeedItem[]>(chunk.path)))).flatMap((result) => (result.status === "fulfilled" ? result.value : []));
     const filters = readFilters();
-    const whole = filters.view !== "feed" || activeFilterCount(filters) > 0;
+    const whole = filters.view !== "feed" || filters.mode === "anytime" || activeFilterCount(filters) > 0;
     const [first, rest] = await Promise.all([recent ? getJson<FeedItem[]>(recent.path) : [], whole ? loadArchive() : []]);
     feed = { ...manifest, items: [...first, ...rest] };
     archivePending = !whole && older.length > 0;
@@ -286,13 +302,11 @@ function addArchive(items: FeedItem[]): void {
 }
 
 function rowId(row: Row): string {
-  return row.type === "card" ? row.item.id : "caught-up";
+  return row.type === "card" ? row.item.id : row.type;
 }
 
 function shownRowIds(): string[] {
-  return [...list.children].flatMap((el) =>
-    el instanceof HTMLElement && el.dataset.id ? [el.dataset.id] : el.getAttribute("role") === "separator" ? ["caught-up"] : [],
-  );
+  return [...list.children].flatMap((el) => (el instanceof HTMLElement && (el.dataset.id || el.dataset.row) ? [el.dataset.id || el.dataset.row!] : []));
 }
 
 function loadHidden(): Set<ExcludeId> {
@@ -483,14 +497,29 @@ function readFilters(): Filters {
   const set = (key: string) => new Set((params.get(key) ?? "").split(",").filter(Boolean));
   const show = params.get("show");
   const view = params.get("view");
+  const mode: Mode = params.get("feed") === "anytime" ? "anytime" : "new";
+  const stack = Math.floor(Number(params.get("stack")));
   return {
     view: SHELVES.includes(view as Shelf) ? (view as Shelf) : "feed",
+    mode,
+    stack: mode === "anytime" && stack > 1 ? stack : 1,
     show: show && show in FORMATS ? (show as Format) : "", tags: set("tags"), kind: set("kind"), people: set("people") };
 }
 
-function writeFilters(filters: Filters): void {
+// A stack number belongs to one feed and one set of filters, so changing either starts again at stack 1.
+function writeFilters(next: Filters): void {
+  const current = readFilters();
+  const sameSet = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every((value) => b.has(value));
+  const same =
+    current.view === next.view &&
+    current.mode === next.mode &&
+    current.show === next.show &&
+    (["tags", "kind", "people"] as const).every((key) => sameSet(current[key], next[key]));
+  const filters = same ? next : { ...next, stack: 1 };
   const params = new URLSearchParams();
   if (filters.view !== "feed") params.set("view", filters.view);
+  if (filters.mode === "anytime") params.set("feed", "anytime");
+  if (filters.mode === "anytime" && filters.stack > 1) params.set("stack", String(filters.stack));
   if (filters.show) params.set("show", filters.show);
   if (filters.tags.size > 0) params.set("tags", [...filters.tags].join(","));
   if (filters.kind.size > 0) params.set("kind", [...filters.kind].join(","));
@@ -507,7 +536,7 @@ function activeFilterCount(filters: Filters): number {
 
 // Clears what narrows the list; the current list (feed, favourites, archive) and No AI stay as they are.
 function clearFilters(filters: Filters): void {
-  writeFilters({ view: filters.view, show: "", tags: new Set(), kind: new Set(), people: new Set() });
+  writeFilters({ view: filters.view, mode: filters.mode, stack: 1, show: "", tags: new Set(), kind: new Set(), people: new Set() });
 }
 
 function matchesChips(item: FeedItem, filters: Filters): boolean {
@@ -521,6 +550,7 @@ function render(): void {
   const filters = readFilters();
   const { view } = filters;
   renderShelfLinks(view);
+  renderModes(filters);
 
   const chipMatches = viewItems(filters);
   renderControls(filters, chipMatches);
@@ -528,6 +558,11 @@ function render(): void {
   rendered = 0;
   list.replaceChildren(...(view === "feed" ? [] : [shelfHead(view, Object.keys(library[view]).length)]));
 
+  // Anytime deals from every year, so it waits for the archive (a plain feed URL paints before it lands).
+  if (view === "feed" && filters.mode === "anytime" && archivePending) {
+    list.append(moment({ mood: "happy", title: "Dealing today's stack", body: "Gathering posts from every year." }));
+    return;
+  }
   if (rows.length === 0) {
     const shelfEmpty = view !== "feed" && Object.keys(library[view]).length === 0;
     list.append(
@@ -537,7 +572,7 @@ function render(): void {
         body: shelfEmpty ? SHELF_COPY[view].empty : "No posts match these filters.",
         action: shelfEmpty
           ? ["Back to the feed", () => writeFilters({ ...filters, view: "feed" })]
-          : ["Show everything", () => writeFilters({ view, show: "", tags: new Set(), kind: new Set(), people: new Set() })],
+          : ["Show everything", () => clearFilters(filters)],
       }),
     );
     return;
@@ -545,12 +580,25 @@ function render(): void {
   appendPage();
 }
 
+// Dealing needs every chunk: until the archive arrives, New shows this week without its hand.
 function rowsFor(filters: Filters, chipMatches: FeedItem[]): Row[] {
   const visible = chipMatches.filter((item) => !filters.show || FORMAT_OF[item.kind] === filters.show);
+  dealtAs = new Map();
   if (filters.view !== "feed") return visible.map((item): Row => ({ type: "card", item }));
-  const { ordered, freshCount } = orderFeed(visible, new Date());
+  const now = new Date();
+  const pool = visible.filter((item) => !isShelved(library, "favourites", item.id));
+  if (filters.mode === "anytime") {
+    const stack = dealStack(pool, { now, dealt: library.dealt, stack: filters.stack });
+    if (stack.length === 0) return [];
+    for (const item of stack) dealtAs.set(item.id, "stack");
+    const more = dealStack(pool, { now, dealt: library.dealt, stack: filters.stack + 1 }).length > 0;
+    return [...stack.map((item): Row => ({ type: "card", item })), { type: "stack-end", stack: filters.stack, count: stack.length, more }];
+  }
+  const hand = archivePending ? [] : dealHand(pool, { now, dealt: library.dealt });
+  for (const item of hand) dealtAs.set(item.id, "hand");
+  const { ordered, freshCount } = orderFeed(visible, now, hand);
   const rows = ordered.map((item): Row => ({ type: "card", item }));
-  if (freshCount > 0 && freshCount < ordered.length) rows.splice(freshCount, 0, { type: "caught-up" });
+  if (freshCount > 0 && freshCount < ordered.length) rows.splice(freshCount, 0, { type: "caught-up", hand: hand.length });
   return rows;
 }
 
@@ -596,9 +644,26 @@ function shelfHead(shelf: Shelf, count: number): HTMLElement {
 
 function appendPage(): void {
   const page = rows.slice(rendered, rendered + PAGE_SIZE);
-  list.append(...page.map((row) => (row.type === "card" ? renderCard(row.item) : renderCaughtUp())));
+  list.append(...page.map(renderRow));
   rendered += page.length;
-  if (rendered >= rows.length && readFilters().view === "feed" && !archivePending) list.append(renderEnd());
+  const filters = readFilters();
+  if (rendered >= rows.length && filters.view === "feed" && filters.mode === "new" && !archivePending) list.append(renderEnd());
+  // A dealt card counts once it is on the page; other days and other devices then deal something else.
+  const dealtNow = page.flatMap((row) => (row.type === "card" && dealtAs.has(row.item.id) ? [row.item.id] : []));
+  const next = recordDealt(library, dealtNow, dayKey(new Date()));
+  if (next !== library) saveLibrary(next);
+}
+
+function renderRow(row: Row): HTMLElement {
+  if (row.type === "card") return renderCard(row.item);
+  if (row.type === "caught-up") return renderCaughtUp(row.hand);
+  return renderStackEnd(row);
+}
+
+function renderModes(filters: Filters): void {
+  for (const button of modeButtons) {
+    button.setAttribute("aria-pressed", String(filters.view === "feed" && button.dataset.mode === filters.mode));
+  }
 }
 
 function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
@@ -841,8 +906,18 @@ function byline(item: FeedItem, lead: Node[] = []): HTMLElement {
     h("span", { className: "author" }, [item.author]),
     // The thumbnail and play button already say "video", so watch cards skip the pill.
     ...(format === "watch" ? [] : [h("span", { className: "format" }, [icon(FORMATS[format].icon, true), FORMATS[format].label])]),
-    h("time", { dateTime: item.publishedAt, title: new Date(item.publishedAt).toLocaleString() }, [ago(item.publishedAt)]),
+    dateline(item),
   ]);
+}
+
+const monthYear = new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" });
+
+// A dealt card is there for what it is, not for being new, so it names its month rather than "6 yr. ago".
+function dateline(item: FeedItem): HTMLElement {
+  const as = dealtAs.get(item.id);
+  const date = new Date(item.publishedAt);
+  const text = as === "hand" ? `From ${monthYear.format(date)}` : as === "stack" ? monthYear.format(date) : ago(item.publishedAt);
+  return h("time", { dateTime: item.publishedAt, title: date.toLocaleString(), ...(as === "hand" ? { className: "dealt" } : {}) }, [text]);
 }
 
 function tagList(item: FeedItem): HTMLElement[] {
@@ -1143,14 +1218,32 @@ function play(thumb: HTMLElement, item: FeedItem): void {
   thumb.replaceWith(h("div", { className: "thumb" }, [frame]));
 }
 
-function renderCaughtUp(): HTMLElement {
+function renderCaughtUp(hand: number): HTMLElement {
   const el = moment({
     mood: "happy",
     title: "You're all caught up!",
-    body: "Everything new from this week is above. Older favourites wait below, if you want them.",
+    body:
+      hand > 0
+        ? `That's this week, plus ${hand} from the archive. A new hand is dealt tomorrow. Older posts wait below, if you want them.`
+        : "Everything new from this week is above. Older favourites wait below, if you want them.",
   });
   el.setAttribute("role", "separator");
+  el.dataset.row = "caught-up";
   cheer.observe(el);
+  return el;
+}
+
+// The stack ends here. Another one is a deliberate tap, never more scrolling.
+function renderStackEnd({ stack, count, more }: Extract<Row, { type: "stack-end" }>): HTMLElement {
+  const filters = readFilters();
+  const el = moment({
+    mood: "sleepy",
+    title: stack === 1 ? "That's today's stack" : `That's stack ${stack}`,
+    body: `${count} pick${count === 1 ? "" : "s"} from across the years. A fresh stack is dealt tomorrow.`,
+    ...(more ? { action: ["Keep digging", () => writeFilters({ ...filters, stack: stack + 1 })] as [string, () => void], quiet: true } : {}),
+  });
+  el.setAttribute("role", "separator");
+  el.dataset.row = "stack-end";
   return el;
 }
 
@@ -1175,6 +1268,7 @@ function moment(options: {
   body: string;
   fine?: string;
   action?: [string, () => void];
+  quiet?: boolean;
 }): HTMLElement {
   const sprout = svg("sprout", "mascot");
   const children: Node[] = [
@@ -1184,7 +1278,7 @@ function moment(options: {
   ];
   if (options.action) {
     const [label, onClick] = options.action;
-    const button = h("button", { type: "button", className: "button" }, [label]);
+    const button = h("button", { type: "button", className: options.quiet ? "button quiet" : "button" }, [label]);
     button.addEventListener("click", onClick);
     children.push(button);
   }

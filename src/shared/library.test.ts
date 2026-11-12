@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { emptyLibrary, isShelved, mergeLibraries, parseLibrary, sameLibrary, shelfItems, toggleShelf } from "./library";
+import { emptyLibrary, isShelved, mergeLibraries, parseLibrary, recordDealt, sameLibrary, shelfItems, toggleShelf } from "./library";
 import type { FeedItem } from "./types";
 
 const item = (id: string, title = id): FeedItem => ({
@@ -74,4 +74,20 @@ test("a library stored before removals were tracked still parses, and removals r
   expect(parseLibrary(old).removed).toEqual({ favourites: {}, archive: {} });
   const removed = toggleShelf(parseLibrary(old), "favourites", item("a"), new Date("2026-11-02T00:00:00Z"));
   expect(parseLibrary(JSON.parse(JSON.stringify(removed)))).toEqual(removed);
+});
+
+test("dealt days merge to the later day, round-trip, and old ones are forgotten", () => {
+  const a = recordDealt(emptyLibrary(), ["one", "two"], "2026-11-10");
+  const b = recordDealt(emptyLibrary(), ["two", "three"], "2026-11-11");
+  const merged = mergeLibraries(a, b);
+  expect(merged.dealt).toEqual({ one: "2026-11-10", two: "2026-11-11", three: "2026-11-11" });
+  expect(parseLibrary(JSON.parse(JSON.stringify(merged)))).toEqual(merged);
+  expect(sameLibrary(merged, mergeLibraries(merged, a))).toBe(true);
+  expect(sameLibrary(merged, a)).toBe(false);
+  expect(recordDealt(merged, ["one"], "2026-11-10")).toBe(merged);
+  expect(recordDealt(merged, ["four"], "2027-03-01").dealt).toEqual({ four: "2027-03-01" });
+});
+
+test("a library stored before dealing existed still parses", () => {
+  expect(parseLibrary({ favourites: {}, archive: {} }).dealt).toEqual({});
 });

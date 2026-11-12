@@ -6,9 +6,28 @@ export const SHELVES: readonly Shelf[] = ["favourites", "archive"];
 export type Saved = { item: FeedItem; at: string };
 // `removed` remembers when a post left a shelf, so a removal on one device wins over an older save
 // on another when two libraries merge. Without it, a merge could only ever add.
-export type Library = Record<Shelf, Record<string, Saved>> & { removed: Record<Shelf, Record<string, string>> };
+// `dealt` is the day (YYYY-MM-DD) each post was last dealt into a hand or a stack, so other days and
+// other devices deal something else.
+export type Library = Record<Shelf, Record<string, Saved>> & { removed: Record<Shelf, Record<string, string>>; dealt: Record<string, string> };
 
-export const emptyLibrary = (): Library => ({ favourites: {}, archive: {}, removed: { favourites: {}, archive: {} } });
+export const emptyLibrary = (): Library => ({ favourites: {}, archive: {}, removed: { favourites: {}, archive: {} }, dealt: {} });
+
+// Long enough that a post doesn't come back soon; short enough that the list stays small.
+export const DEALT_KEEP_DAYS = 90;
+
+// Marks posts as dealt today and forgets any dealt more than DEALT_KEEP_DAYS ago. Returns the same
+// library when nothing changes, so a re-render doesn't trigger a sync.
+export function recordDealt(library: Library, ids: readonly string[], day: string): Library {
+  const fresh = ids.filter((id) => library.dealt[id] !== day);
+  if (fresh.length === 0) return library;
+  const dealt = pruneDealt({ ...library.dealt, ...Object.fromEntries(fresh.map((id) => [id, day])) }, day);
+  return { ...library, dealt };
+}
+
+function pruneDealt(dealt: Record<string, string>, today: string): Record<string, string> {
+  const oldest = new Date(Date.parse(`${today}T00:00:00Z`) - DEALT_KEEP_DAYS * 86_400_000).toISOString().slice(0, 10);
+  return Object.fromEntries(Object.entries(dealt).filter(([, day]) => day >= oldest));
+}
 
 export function isShelved(library: Library, shelf: Shelf, id: string): boolean {
   return id in library[shelf];
@@ -29,6 +48,13 @@ export function toggleShelf(library: Library, shelf: Shelf, item: FeedItem, now:
 // On a tie the save wins, so merging never loses a post by accident.
 export function mergeLibraries(a: Library, b: Library): Library {
   const merged = emptyLibrary();
+  // The later day wins: it is the one that decides when a post may be dealt again.
+  for (const side of [a, b]) {
+    for (const [id, day] of Object.entries(side.dealt)) {
+      const seen = merged.dealt[id];
+      if (seen === undefined || seen < day) merged.dealt[id] = day;
+    }
+  }
   for (const shelf of SHELVES) {
     const ids = new Set([a, b].flatMap((side) => [...Object.keys(side[shelf]), ...Object.keys(side.removed[shelf])]));
     for (const id of ids) {
@@ -43,7 +69,7 @@ export function mergeLibraries(a: Library, b: Library): Library {
 }
 
 export function sameLibrary(a: Library, b: Library): boolean {
-  return SHELVES.every(
+  return sameKeys(a.dealt, b.dealt, (x, y) => x === y) && SHELVES.every(
     (shelf) =>
       sameKeys(a[shelf], b[shelf], (x, y) => x.at === y.at) && sameKeys(a.removed[shelf], b.removed[shelf], (x, y) => x === y),
   );
@@ -64,6 +90,9 @@ export function shelfItems(library: Library, shelf: Shelf, current: ReadonlyMap<
 export function parseLibrary(raw: unknown): Library {
   const library = emptyLibrary();
   if (!isRecord(raw)) return library;
+  if (isRecord(raw.dealt)) {
+    for (const [id, day] of Object.entries(raw.dealt)) if (typeof day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(day)) library.dealt[id] = day;
+  }
   for (const shelf of SHELVES) {
     const entries = raw[shelf];
     if (!isRecord(entries)) continue;

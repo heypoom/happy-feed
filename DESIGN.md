@@ -283,6 +283,10 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 
 ## Components
 
+### New / Anytime
+- Two words under the masthead row in the masthead's voice (Bricolage 750, 1.3rem, -0.025em), 22px apart, each a 44px tap target. The selected one is in full ink with a 3px accent underline that draws in from the centre; the other is muted and inks on hover. It scrolls away with the masthead, so the sticky bar stays one row. Neither is selected on a shelf.
+- In the URL as `?feed=anytime` (New is the default), and `&stack=N` for a stack dug past the first.
+
 ### Format Tabs
 - **Character:** a single pill track that answers "watch or read?".
 - **Shape:** a pill group on the surface with 4px inner padding. Each tab is a 40px pill with an icon, a label and a tabular count.
@@ -321,10 +325,13 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 ### Byline, Format Pill and Tags
 - The byline shows the author in bold, then a format pill (the hue's solid with Ink on Solid text and a filled play or book glyph), then the relative time pushed to the end.
 - Tags are pills with a 22% solid tint and hue-ink text.
+- **Dealt dates:** a card from today's hand replaces the relative time with an outlined pill in its hue ("From Aug 2022": 1.5px ring at 70% solid, hue-ink text, tag size and weight; on jewel tiles the ring and text are on-jewel). Outlined, so it never reads as a tag. Anytime cards show the month plainly ("Mar 2019"), since every card there is old.
 
 ### Moment (Signature)
 - **Character:** the sprout's stopping point.
 - A surface card with 32px corners and the soft shadow, holding a centered 96px sprout, a display title, Literata body copy, an optional pill button, and optional fine print. The "happy" mood hops and waves its leaves once when it scrolls into view. The "sleepy" mood closes its eyes and is used for the end, empty and error states.
+- **Caught up** counts today's hand: "That's this week, plus 8 from the archive. A new hand is dealt tomorrow."
+- **End of a stack** (Anytime) is sleepy: "That's today's stack" (or "That's stack 2"), the number of picks, "A fresh stack is dealt tomorrow." and a quiet surface "Keep digging" button, shown only while there is more to deal. Another stack is always a tap, never more scrolling. While older posts are still loading, Anytime shows a happy "Dealing today's stack" moment.
 
 ### Sync Line and Sync Sheet
 - Under a shelf's title: an 18px cloud, a muted status ("On this device only.", "Synced across your devices." with a leaf-green cloud, or "Couldn't sync just now.") and an accent text button, "Sync devices" or "Sync settings".
