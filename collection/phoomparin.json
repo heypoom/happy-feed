@@ -88,6 +88,16 @@
     { "name": "Infinitely More", "description": "Joel David Hamkins", "substack": "https://joeldavidhamkins.substack.com", "tags": ["Math"] },
     { "name": "Personal Canon", "description": "Celine Nguyen", "substack": "https://www.personalcanon.com", "tags": ["Design"] },
     { "name": "Contraptions", "description": "Venkatesh Rao", "substack": "https://contraptions.venkateshrao.com", "tags": ["STEM"] },
-    { "name": "LiveOverflow", "youtube": "https://www.youtube.com/@LiveOverflow", "tags": ["Computer Science"] }
+    { "name": "LiveOverflow", "youtube": "https://www.youtube.com/@LiveOverflow", "tags": ["Computer Science"] },
+    { "name": "Tom 7", "description": "suckerpinch", "youtube": "https://www.youtube.com/@tom7", "tags": ["Computer Science"] },
+    { "name": "Ken Shirriff", "rss": "http://www.righto.com/feeds/posts/default", "tags": ["Computer Science"] },
+    { "name": "Matt Webb", "description": "Interconnected", "rss": "https://interconnected.org/home/feed", "tags": ["HCI"] },
+    { "name": "Marcin Wichary", "bluesky": "https://bsky.app/profile/aresluna.org", "tags": ["Design"] },
+    { "name": "Robin Sloan", "rss": "https://www.robinsloan.com/feed.xml", "tags": ["Play"] },
+    { "name": "Low-tech Magazine", "rss": "https://solar.lowtechmagazine.com/posts/index.xml", "tags": ["STEM"] },
+    { "name": "The Public Domain Review", "rss": "https://publicdomainreview.org/rss.xml", "tags": ["Design"] },
+    { "name": "A Collection of Unmitigated Pedantry", "description": "Bret Devereaux", "rss": "https://acoup.blog/feed/", "tags": ["Play"] },
+    { "name": "jan Misali", "youtube": "https://www.youtube.com/@HBMmaster", "tags": ["Play"] },
+    { "name": "Jacob Geller", "youtube": "https://www.youtube.com/@JacobGeller", "tags": ["Design"] }
   ]
 }
