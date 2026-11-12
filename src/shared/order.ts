@@ -68,7 +68,7 @@ export function dealHand<T extends Dealable>(items: readonly T[], { now, dealt }
   if (count === 0) return [];
   const active = new Set(fresh.map((item) => item.author));
   const older = items.filter((item) => item.publishedAt < cutoff && !dealtBefore(dealt, item.id, day));
-  return turns(older, `hand:${day}`, (author) => (active.has(author) ? 1 : 0)).slice(0, count);
+  return turns(older, `hand:${day}`, count, (author) => (active.has(author) ? 1 : 0));
 }
 
 // Today's Anytime stack number `stack` (from 1): posts from any year but this week, with every
@@ -77,17 +77,24 @@ export function dealHand<T extends Dealable>(items: readonly T[], { now, dealt }
 export function dealStack<T extends Dealable>(items: readonly T[], { now, dealt, stack }: Deal & { stack: number }): T[] {
   const day = dayKey(now);
   const cutoff = new Date(now.getTime() - FRESH_MS).toISOString();
-  let remaining = items.filter((item) => item.publishedAt < cutoff && !dealtBefore(dealt, item.id, day));
-  let picked: T[] = [];
-  for (let n = 1; n <= stack; n++) {
-    // Earlier stacks took everything: there is no stack `n`.
-    if (remaining.length === 0) return [];
-    picked = turns(remaining, `stack:${day}:${n}`).slice(0, STACK_SIZE);
+  const pool = items.filter((item) => item.publishedAt < cutoff && !dealtBefore(dealt, item.id, day));
+  // Stack N needs stacks 1 to N-1 first. The stacks dealt so far are kept for as long as the day and
+  // the pool stay the same, so a pull or "Keep digging" deals one new stack, not all of them again.
+  const key = `${day}|${pool.length}|${hash(day, pool.map((item) => item.id).join("\n"))}`;
+  if (stacks?.key !== key) stacks = { key, dealt: [], remaining: pool };
+  const memo = stacks as Stacks<T>;
+  while (memo.dealt.length < stack && memo.remaining.length > 0) {
+    const picked = turns(memo.remaining, `stack:${day}:${memo.dealt.length + 1}`, STACK_SIZE);
     const taken = new Set(picked.map((item) => item.id));
-    remaining = remaining.filter((item) => !taken.has(item.id));
+    memo.dealt.push(picked);
+    memo.remaining = memo.remaining.filter((item) => !taken.has(item.id));
   }
-  return picked;
+  // Earlier stacks took everything: there is no stack `stack`.
+  return memo.dealt[stack - 1] ?? [];
 }
+
+type Stacks<T> = { key: string; dealt: T[][]; remaining: readonly T[] };
+let stacks: Stacks<Dealable> | undefined;
 
 const dealtBefore = (dealt: Dealt, id: string, day: string) => {
   const at = dealt[id];
@@ -97,14 +104,22 @@ const dealtBefore = (dealt: Dealt, id: string, day: string) => {
 // Sources take turns: each one's best post by the day's hash, then each one's second best, and so on.
 // Ranking by a hash of the post id, not by its position, keeps a card in place when another post leaves
 // the pool (archived on another device, or a new post arriving).
-function turns<T extends Dealable>(items: readonly T[], seed: string, priority: (author: string) => number = () => 0): T[] {
-  const bySource = Map.groupBy(items, (item) => item.author);
+// Each post and source is hashed once, and only the first `limit` turns are taken.
+function turns<T extends Dealable>(items: readonly T[], seed: string, limit: number, priority: (author: string) => number = () => 0): T[] {
+  const bySource = Map.groupBy(
+    items.map((item) => ({ item, rank: hash(seed, item.id) })),
+    ({ item }) => item.author,
+  );
   const queues = [...bySource]
-    .map(([author, posts]) => ({ author, posts: posts.toSorted((a, b) => hash(seed, a.id) - hash(seed, b.id)) }))
-    .sort((a, b) => priority(a.author) - priority(b.author) || hash(seed, a.author) - hash(seed, b.author));
+    .map(([author, posts]) => ({ priority: priority(author), rank: hash(seed, author), posts: posts.sort((a, b) => a.rank - b.rank) }))
+    .sort((a, b) => a.priority - b.priority || a.rank - b.rank);
   const out: T[] = [];
-  for (let round = 0; out.length < items.length; round++) {
-    for (const { posts } of queues) if (posts[round]) out.push(posts[round]!);
+  const total = Math.min(limit, items.length);
+  for (let round = 0; out.length < total; round++) {
+    for (const { posts } of queues) {
+      if (out.length === total) break;
+      if (posts[round]) out.push(posts[round]!.item);
+    }
   }
   return out;
 }
