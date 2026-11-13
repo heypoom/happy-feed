@@ -65,3 +65,16 @@ test("a rejected key falls back to the channel feed", async () => {
   stubFetch((requested) => (requested.hostname === "www.googleapis.com" ? { status: 403, body: {} } : { body: rss }));
   expect((await youtube("bad")(url, options("full"))).map((item) => item.id)).toEqual(["yt:video:long1"]);
 });
+
+test("an hourly run reads the newest API page when the channel feed is down", async () => {
+  const calls = stubFetch((requested) =>
+    requested.hostname === "www.googleapis.com" ? { body: { items: [video("new", "2026-11-10T00:00:00Z")], nextPageToken: "p2" } } : { status: 404, body: "" },
+  );
+  expect((await youtube("key")(url, options("head"))).map((item) => item.id)).toEqual(["yt:video:new"]);
+  expect(calls.filter((call) => call.url.hostname === "www.googleapis.com")).toHaveLength(1);
+});
+
+test("without a key, an hourly run still fails when the channel feed is down", async () => {
+  stubFetch(() => ({ status: 404, body: "" }));
+  await expect(youtube(undefined)(url, options("head"))).rejects.toThrow("HTTP 404");
+});

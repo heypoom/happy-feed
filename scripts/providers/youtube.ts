@@ -1,4 +1,4 @@
-import type { Provider, ProviderOptions } from ".";
+import type { Depth, Provider, ProviderOptions } from ".";
 import { parseFeedXml, truncate, type RawItem } from "../feed-xml";
 import { fetchJson, fetchText } from "../http";
 import { paged, withFallback } from "./paged";
@@ -15,13 +15,20 @@ type PlaylistPage = {
 };
 
 // The channel's RSS feed holds only its latest 15 uploads, Shorts included. With an API key, a full run
-// lists every long-form upload instead (one quota unit per 50 videos), and hourly runs stay on the free feed.
+// lists every long-form upload instead (one quota unit per 50 videos), and hourly runs stay on the free
+// feed, reading the newest 50 through the API only when the feed fails (YouTube takes it down at times).
 export function youtube(apiKey: string | undefined): Provider {
   return async (url, { depth, state }: ProviderOptions) => {
     const channelId = await resolveChannelId(url, state.youtubeIds);
     const feed = () => channelFeed(channelId);
-    if (!apiKey || depth === "head") return feed();
-    return withFallback(() => uploads(channelId, apiKey), feed);
+    if (!apiKey) return feed();
+    if (depth === "head") {
+      return feed().catch((error: unknown) => {
+        console.warn(`  channel feed failed, using the API: ${error instanceof Error ? error.message : String(error)}`);
+        return uploads(channelId, apiKey, "head");
+      });
+    }
+    return withFallback(() => uploads(channelId, apiKey, "full"), feed);
   };
 }
 
@@ -33,9 +40,9 @@ async function channelFeed(channelId: string): Promise<RawItem[]> {
 // "UULF" + the channel id is YouTube's playlist of a channel's long-form videos: every upload except Shorts
 // and live streams. It is not documented, but it is the only listing that leaves Shorts out without a
 // per-video lookup. Ids match the RSS feed's (`yt:video:<id>`), so the two copies of a video merge.
-async function uploads(channelId: string, key: string): Promise<RawItem[]> {
+async function uploads(channelId: string, key: string, depth: Depth): Promise<RawItem[]> {
   const playlistId = `UULF${channelId.slice(2)}`;
-  return paged<string>("full", async (pageToken) => {
+  return paged<string>(depth, async (pageToken) => {
     const params = new URLSearchParams({ part: "snippet,contentDetails", playlistId, maxResults: "50" });
     if (pageToken) params.set("pageToken", pageToken);
     const page = await fetchJson<PlaylistPage>(`${API}?${params}`, { "x-goog-api-key": key });
