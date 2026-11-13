@@ -7,7 +7,7 @@
     { "name": "Andy Matuschak", "bluesky": "https://bsky.app/profile/andymatuschak.org", "tags": ["HCI"] },
     { "name": "Maggie Appleton", "rss": "https://maggieappleton.com/rss.xml", "tags": ["HCI"] },
     { "name": "Ian Magnusson", "bluesky": "https://bsky.app/profile/ianmagnusson.bsky.social", "tags": ["Computer Science"] },
-    { "name": "Chris Olah", "rss": "https://colah.github.io/rss.xml", "bluesky": "https://bsky.app/profile/colah.bsky.social", "tags": ["Computer Science"] },
+    { "name": "Chris Olah", "bluesky": "https://bsky.app/profile/colah.bsky.social", "tags": ["Computer Science"] },
     { "name": "voooooogel", "description": "Theia Vogel", "rss": "https://vgel.me/feed.xml", "bluesky": "https://bsky.app/profile/vgel.me", "tags": ["Computer Science"] },
     { "name": "Linus Lee", "description": "thesephist", "rss": "https://thesephist.com/index.xml", "tags": ["HCI"] }
   ]
