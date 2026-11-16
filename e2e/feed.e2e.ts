@@ -59,6 +59,23 @@ test("a tag chip filters, and Clear or Esc removes every filter", async ({ page,
   await expect(page).toHaveURL(/\/$/);
 });
 
+test("a tag chip narrows the people list and its count", async ({ page, isMobile }) => {
+  await openFilters(page, isMobile);
+  const people = page.getByRole("group", { name: /People/ });
+  await expect(people.getByRole("button")).toHaveCount(4);
+  await expect(page.locator(".people-head .count")).toHaveText("4");
+
+  await page.getByRole("button", { name: "HCI", exact: true }).click();
+  await expect(people.getByRole("button")).toHaveText(["BBen Ortiz", "DDana Wu"]);
+  await expect(page.locator(".people-head .count")).toHaveText("2");
+
+  await people.getByRole("button", { name: "Dana Wu" }).click();
+  await page.getByRole("button", { name: "HCI", exact: true }).click();
+  await page.getByRole("button", { name: "Creative Coding", exact: true }).click();
+  // A selected person stays listed, first, so they can be unselected.
+  await expect(people.getByRole("button")).toHaveText(["DDana Wu", "AAda Lim"]);
+});
+
 test("filters in the URL survive a reload", async ({ page }) => {
   await page.goto("/?show=post");
   await expect(cards(page)).toHaveCount(1);

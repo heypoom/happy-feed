@@ -1008,7 +1008,13 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
 
   const authors = new Map<string, Hue>();
   // The deck has every source with an older post, so the list is whole before the archive loads.
-  for (const item of loadedItems()) if (!authors.has(item.author)) authors.set(item.author, hueFor(item));
+  // A tag or source filter narrows the list to the people posting under it; selected people stay so
+  // they can be unselected.
+  const scope = { ...filters, people: new Set<string>() };
+  for (const item of loadedItems()) {
+    if (authors.has(item.author)) continue;
+    if (matchesChips(item, scope) || filters.people.has(item.author)) authors.set(item.author, hueFor(item));
+  }
   // Selected people lead the list, so what is filtering the feed is never buried in the alphabet.
   const ordered = [...authors].sort(
     ([a], [b]) =>
