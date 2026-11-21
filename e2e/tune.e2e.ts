@@ -36,13 +36,13 @@ test("pausing someone from their card takes them out of the feed, and their own 
   if (isMobile) await page.getByRole("button", { name: "Close filters" }).click();
   await expect(card(page, ITEMS.hype.title)).toBeVisible();
   const head = page.locator(".person-head");
-  await expect(head.getByText(/because you asked for them by name/)).toBeVisible();
+  await expect(head.getByRole("radio", { name: "Pause" })).toBeChecked();
   await head.getByRole("radio", { name: "Normal" }).click();
-  await expect(head.getByText(/Every new post/)).toBeVisible();
+  await expect(head.getByRole("radio", { name: "Normal" })).toBeChecked();
 
-  // Phones undo the filter from the active strip; desktop has Show everyone in the head.
+  // Phones undo the filter from the active strip, desktop from the person's chip in the rail.
   if (isMobile) await page.getByRole("button", { name: "Remove Ben Ortiz" }).click();
-  else await head.getByRole("button", { name: "Show everyone" }).click();
+  else await page.getByRole("button", { name: "Ben Ortiz", pressed: true }).click();
   await expect(cards(page)).toHaveCount(4);
 });
 

@@ -1665,18 +1665,18 @@ function levelControl(author: string, where: "sheet" | "head"): HTMLElement {
     input.addEventListener("change", () => input.checked && tune(author, level));
     return h("label", { className: "level", dataset: { level } }, [input, icon(LEVEL_COPY[level].icon), h("span", {}, [LEVEL_COPY[level].label])]);
   });
+  // The sheet explains each stop in a line under the track; the head is the track alone.
   const control = h("fieldset", { className: "levels", ariaLabel: `How much of ${author} to show`, dataset: { author, where } }, [
     h("div", { className: "level-track" }, options),
-    h("p", { className: "level-note" }, []),
+    ...(where === "sheet" ? [h("p", { className: "level-note" }, [])] : []),
   ]);
   fillLevelNote(control, current);
   return control;
 }
 
 function fillLevelNote(control: HTMLElement, level: Level): void {
-  // Filtered to one person, their posts show whatever their level, so the head says why.
-  const asked = control.dataset.where === "head" && level === "pause";
-  control.querySelector(".level-note")!.textContent = asked ? "On pause. Their posts show here because you asked for them by name." : LEVEL_COPY[level].note;
+  const note = control.querySelector(".level-note");
+  if (note) note.textContent = LEVEL_COPY[level].note;
 }
 
 // A change applies at once underneath: cards that no longer belong fold away, and the controls and
@@ -1765,20 +1765,17 @@ function placePersonSheet(): void {
 // paused person is resumed.
 function personHead(author: string, items: FeedItem[]): HTMLElement {
   const first = loadedItems().find((item) => item.author === author);
-  const everyone = h("button", { type: "button", className: "button quiet" }, ["Show everyone"]);
-  everyone.addEventListener("click", () => writeFilters({ ...readFilters(), people: new Set() }));
   const count = items.length;
-  // Two rows: who it is (with Show everyone on desktop; phones have the active strip's × right above),
-  // then how much of them to show.
+  // The name on the left and the level track on the right, or under it where they don't fit. The
+  // filter itself is undone from the active strip or the rail.
   return h("header", { className: "person-head", dataset: { hue: first ? hueFor(first) : hueOf(author) } }, [
     h("div", { className: "person-row" }, [
       h("div", { className: "person-id" }, [
         h("span", { className: "monogram", ariaHidden: "true" }, [initial(author)]),
         h("h2", {}, [author, h("span", { className: "count", title: `${count} post${count === 1 ? "" : "s"}` }, [count.toLocaleString()])]),
       ]),
-      everyone,
+      levelControl(author, "head"),
     ]),
-    levelControl(author, "head"),
   ]);
 }
 

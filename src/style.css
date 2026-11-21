@@ -1640,28 +1640,44 @@ html:has(.person-sheet[open]) {
   box-shadow: none;
 }
 
-/* Person head: the top of a feed filtered to one person. Two rows: who it is, then how much of them
-   to show, on a surface track. */
+/* Person head: the top of a feed filtered to one person. The name on the left and the level track
+   on the right when the head has room for both, the track under the name when it doesn't. */
 .person-head {
-  display: grid;
-  gap: 14px;
+  container-type: inline-size;
 }
 
 .person-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
+  gap: 14px 24px;
 }
 
-/* Phones undo the filter from the active strip right above, so the head doesn't repeat it. */
-.person-row > .button {
-  display: none;
+.person-row .levels {
+  flex: 1 1 100%;
+}
+
+/* Stacked under the name on a tablet or the narrow desktop grid, the track keeps its 440px. */
+@container (min-width: 480px) {
+  .person-row .levels {
+    max-width: 440px;
+  }
+}
+
+@container (min-width: 640px) {
+  .person-row {
+    flex-wrap: nowrap;
+  }
+
+  .person-row .levels {
+    flex: 0 0 440px;
+  }
 }
 
 .person-id {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 12px;
   min-width: 0;
@@ -1706,11 +1722,6 @@ html:has(.person-sheet[open]) {
 .person-head .level .icon {
   width: 16px;
   height: 16px;
-}
-
-.person-head .level-note {
-  margin-top: 8px;
-  font-size: 0.875rem;
 }
 
 /* Under 380px four glyphs and labels only just fit one row; the labels alone carry it. */
@@ -2481,25 +2492,6 @@ html:has(.viewer[open]) {
     grid-column: 1 / -1;
   }
 
-  .person-row > .button {
-    display: inline-flex;
-    align-items: center;
-    flex: none;
-  }
-
-  /* The track keeps a fixed width with each icon beside its label; the note sits beside it when the
-     head has room, and under it in a narrow 1024px grid. */
-  .person-head {
-    container-type: inline-size;
-  }
-
-  .person-head .levels {
-    display: grid;
-    grid-template-columns: minmax(0, 440px);
-    align-items: center;
-    gap: 8px 20px;
-  }
-
   .person-head .level {
     gap: 7px;
   }
@@ -2507,21 +2499,6 @@ html:has(.viewer[open]) {
   .person-head .level .icon {
     width: 18px;
     height: 18px;
-  }
-
-  .person-head .level-note {
-    margin: 0 4px;
-    font-size: 0.95rem;
-  }
-
-  @container (min-width: 780px) {
-    .person-head .levels {
-      grid-template-columns: 440px minmax(0, 40ch);
-    }
-
-    .person-head .level-note {
-      margin: 0;
-    }
   }
 
   .person-sheet {
