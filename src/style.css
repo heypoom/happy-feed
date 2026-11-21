@@ -774,6 +774,7 @@ button {
 }
 
 .people-head .count {
+  white-space: nowrap;
   color: var(--muted);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1479,6 +1480,252 @@ html:has(.filter-sheet[open]) {
   color: var(--ink-on-solid);
 }
 
+/* A tuned person's button fills with the card's ink, so it reads as a setting that is on. */
+.act-tune:not([data-level="normal"]) {
+  background: var(--ink);
+  color: var(--wash-base);
+}
+
+/* People: how much of someone the feed shows. One track of four stops (native radios), with a line
+   under it saying what the stop does. */
+.levels {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.level-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 22px;
+  background: var(--ground);
+}
+
+.level {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  min-height: 60px;
+  border-radius: 18px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background-color 0.25s var(--ease-out), color 0.25s var(--ease-out);
+}
+
+.level input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.level .icon {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.35s var(--ease-out);
+}
+
+.level:hover {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--text);
+}
+
+.level:has(input:checked) {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.level:has(input:checked) .icon {
+  transform: scale(1.1);
+}
+
+.level:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.level-note {
+  margin: 10px 4px 0;
+  font-family: var(--reading);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+/* Person sheet: a short bottom sheet on phones, a popover beside the tune button on desktop. */
+html:has(.person-sheet[open]) {
+  overflow: hidden;
+}
+
+.person-sheet {
+  width: 100%;
+  max-width: 100%;
+  margin: auto 0 0;
+  padding: 20px var(--gutter) max(20px, env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 -12px 40px -16px rgb(20 18 42 / 0.45);
+}
+
+.person-sheet[open] {
+  display: grid;
+  gap: 16px;
+  animation: sheet-up 0.45s var(--ease-out);
+}
+
+.person-sheet::backdrop {
+  background: rgb(20 18 42 / 0.5);
+}
+
+.person-sheet[open]::backdrop {
+  animation: fade-in 0.3s ease-out;
+}
+
+.person-sheet-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+}
+
+.person-sheet-head .monogram,
+.person-id .monogram {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-size: 1.2rem;
+}
+
+.person-sheet-head h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.person-sheet-head p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-sheet .sheet-close {
+  grid-column: 3;
+}
+
+.person-sheet .button {
+  min-height: 48px;
+  font-size: 1rem;
+}
+
+.person-sheet .button.quiet {
+  background: var(--ground);
+  box-shadow: none;
+}
+
+.person-sheet .fine {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+/* Person head: the top of a feed filtered to one person, with the same control on a surface track. */
+.person-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 12px;
+}
+
+.person-id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.person-id h2 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 10px;
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.person-id .count {
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.person-head .levels {
+  flex-basis: 100%;
+}
+
+.person-head .level-track {
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+/* In the People list a tuned person carries their stop on the corner of their monogram. */
+.people .monogram {
+  position: relative;
+}
+
+.level-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--surface);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.level-badge .icon {
+  width: 11px;
+  height: 11px;
+  color: var(--surface);
+  stroke-width: 3;
+}
+
+.people .chip[data-level="pause"]:not([aria-pressed="true"]) {
+  color: var(--muted);
+}
+
+.people .chip[data-level="pause"]:not([aria-pressed="true"]) .monogram {
+  background: color-mix(in srgb, var(--solid) 30%, var(--line));
+  color: var(--muted);
+}
+
 .watch .foot {
   display: flex;
   align-items: center;
@@ -1714,6 +1961,13 @@ html:has(.viewer[open]) {
 @keyframes panel-in {
   from {
     transform: translateX(48px);
+    opacity: 0;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    transform: translateY(-6px) scale(0.97);
     opacity: 0;
   }
 }
@@ -2193,8 +2447,52 @@ html:has(.viewer[open]) {
     display: none;
   }
 
-  .list > .shelf-head {
+  .list > .shelf-head,
+  .list > .person-head {
     grid-column: 1 / -1;
+  }
+
+  .person-head .levels {
+    flex-basis: auto;
+    width: min(440px, 100%);
+  }
+
+  .person-head .level {
+    min-height: 44px;
+    grid-auto-flow: column;
+    gap: 6px;
+  }
+
+  .person-head .level-note {
+    margin-top: 8px;
+  }
+
+  .person-sheet {
+    position: fixed;
+    inset: auto;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    margin: 0;
+    padding: 18px;
+    border-radius: 24px;
+    box-shadow: 0 2px 4px rgb(40 30 90 / 0.08), 0 18px 48px -16px rgb(40 30 90 / 0.4);
+  }
+
+  :root[data-resolved="dark"] .person-sheet {
+    box-shadow: 0 0 0 1px var(--line), 0 18px 48px -16px rgb(0 0 0 / 0.8);
+  }
+
+  .person-sheet[open] {
+    gap: 14px;
+    animation: pop-in 0.3s var(--ease-out);
+  }
+
+  .person-sheet::backdrop {
+    background: transparent;
+  }
+
+  .person-sheet .level {
+    min-height: 54px;
   }
 
   .controls {
@@ -2305,6 +2603,8 @@ html:has(.viewer[open]) {
 
   .people-find {
     width: 150px;
+    min-width: 0;
+    flex: 0 1 150px;
     min-height: 32px;
     padding: 0 12px;
     font-size: 0.875rem;
@@ -2321,6 +2621,19 @@ html:has(.viewer[open]) {
     width: 22px;
     height: 22px;
     font-size: 0.7rem;
+  }
+
+  .people .level-badge {
+    right: -3px;
+    bottom: -3px;
+    width: 12px;
+    height: 12px;
+    box-shadow: 0 0 0 1.5px var(--surface);
+  }
+
+  .people .level-badge .icon {
+    width: 9px;
+    height: 9px;
   }
 }
 

@@ -3,7 +3,7 @@ import { expect, ITEMS, test } from "./fixtures";
 
 const cards = (page: Page) => page.getByRole("main").getByRole("article");
 const card = (page: Page, title: string) => cards(page).filter({ hasText: title });
-const titles = (page: Page) => page.getByRole("main").getByRole("heading", { level: 2 }).allInnerTexts();
+const titles = (page: Page) => page.getByRole("main").locator(".card").getByRole("heading", { level: 2 }).allInnerTexts();
 // On phones the tags, sources, No AI and people live in a bottom sheet; on desktop they are the rail.
 const openFilters = async (page: Page, isMobile: boolean) => {
   if (isMobile) await page.locator(".filters-button").click();

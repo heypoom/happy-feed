@@ -1,9 +1,25 @@
 import { EXCLUDE_IDS, EXCLUDE_PRESETS, isExcluded, type ExcludeId } from "./shared/excludes";
 import { assignHues, hueOf, type Hue } from "./shared/hues";
-import { emptyLibrary, isShelved, mergeLibraries, parseLibrary, recordDealt, sameLibrary, shelfItems, SHELVES, toggleShelf, type Library, type Shelf } from "./shared/library";
+import {
+  emptyLibrary,
+  isShelved,
+  levelOf,
+  mergeLibraries,
+  parseLibrary,
+  recordDealt,
+  sameLibrary,
+  setLevel,
+  shelfItems,
+  SHELVES,
+  toggleShelf,
+  tunedPeople,
+  type Library,
+  type Shelf,
+} from "./shared/library";
 import { dayKey, dealHand, dealStack, isFresh, orderFeed } from "./shared/order";
 import { blueskyApiUrl, fromBluesky, fromMastodon, mastodonApiUrl, type PostView } from "./shared/post-view";
 import { normalizePassphrase, SYNC_PATH, syncKey } from "./shared/sync";
+import { LEVELS, thinLess, WEIGHT, type Level } from "./shared/tuning";
 import { FORMAT_OF, type Chunk, type FeedItem, type Format, type Manifest, type SourceKind } from "./shared/types";
 import { fromWire, type WireItem } from "./shared/wire";
 
@@ -78,6 +94,16 @@ const SHELF_COPY: Record<Shelf, { title: string; empty: string }> = {
   archive: { title: "Archive", empty: "Mark posts as read or watched and they rest here, out of your feed." },
 };
 const DONE_LABEL: Record<Format, string> = { watch: "watched", read: "read", post: "read" };
+const LEVEL_COPY: Record<Level, { label: string; icon: string; note: string }> = {
+  more: { label: "More", icon: "i-up", note: "Dealt more often into your daily hand and your Anytime stacks." },
+  normal: { label: "Normal", icon: "i-level", note: "Every new post, and an even turn with everyone else in Anytime." },
+  less: { label: "Less", icon: "i-down", note: "One post a day in New, and dealt from the archive only now and then." },
+  pause: { label: "Pause", icon: "i-pause", note: "Out of New and Anytime until you resume. Favourites and Archive keep their posts." },
+};
+const personSheet = document.querySelector<HTMLDialogElement>(".person-sheet")!;
+// The tune button that opened the person sheet, and its card, so focus and the desktop popover can
+// find it again after the card re-renders.
+let personOpener: { el: HTMLElement; id: string } | undefined;
 const systemDark = matchMedia("(prefers-color-scheme: dark)");
 
 // The manifest and the posts of every chunk loaded so far.
@@ -195,7 +221,7 @@ viewer.addEventListener("pointerup", (event) => {
 });
 window.addEventListener("keydown", (event: KeyboardEvent) => {
   // With the sheet open, Esc belongs to the sheet (it closes it) rather than clearing filters.
-  if (event.key !== "Escape" || viewer.open || sheet.open || syncSheet.open || !feed) return;
+  if (event.key !== "Escape" || viewer.open || sheet.open || syncSheet.open || personSheet.open || !feed) return;
   const filters = readFilters();
   if (activeFilterCount(filters) > 0) clearFilters(filters);
 });
@@ -244,6 +270,14 @@ syncSheet.querySelector(".sync-close")!.addEventListener("click", () => syncShee
 syncSheet.addEventListener("click", (event) => {
   if (event.target === syncSheet) syncSheet.close();
 });
+personSheet.addEventListener("click", (event) => {
+  if (event.target === personSheet) personSheet.close();
+});
+personSheet.addEventListener("close", () => {
+  liveOpener()?.focus({ preventScroll: true });
+  personOpener = undefined;
+});
+addEventListener("resize", () => personSheet.open && placePersonSheet());
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") void syncNow();
 });
@@ -576,15 +610,30 @@ function libraryArrived(next: Library): void {
     else refreshControls();
     return;
   }
+  settleCards();
+}
+
+// The library changed under the feed (here or on another device). The feed keeps its place: cards on
+// screen that no longer belong fold away, the rest re-render, and the cards still to come drop out.
+function settleCards(): void {
+  const filters = readFilters();
+  const stays = stillShown(filters);
   const byId = new Map(loadedItems().map((item) => [item.id, item]));
   for (const card of list.querySelectorAll<HTMLElement>(".card[data-id]")) {
     const item = byId.get(card.dataset.id!);
     if (!item) continue;
-    if (isShelved(library, "archive", item.id)) collapseOut(card);
+    if (!stays(item)) collapseOut(card);
     else card.replaceWith(renderCard(item));
   }
-  rows = [...rows.slice(0, rendered), ...rows.slice(rendered).filter((row) => row.type !== "card" || !isShelved(library, "archive", row.item.id))];
+  rows = [...rows.slice(0, rendered), ...rows.slice(rendered).filter((row) => row.type !== "card" || stays(row.item))];
   refreshControls();
+}
+
+// A card stays when the feed would still show it. Cards already dealt today stay dealt, so a person
+// seen less keeps the cards their turn gave them; only a pause takes those away.
+function stillShown(filters: Filters): (item: FeedItem) => boolean {
+  const thinned = filters.mode === "new" ? new Set(viewItems(filters).map((item) => item.id)) : undefined;
+  return (item) => inFeed(item, filters) && (!thinned || dealtAs.has(item.id) || thinned.has(item.id));
 }
 
 async function startSyncing(words: string): Promise<void> {
@@ -726,11 +775,19 @@ function matchesChips(item: FeedItem, filters: Filters): boolean {
 
 const matchesShow = (item: FeedItem, filters: Filters) => !filters.show || FORMAT_OF[item.kind] === filters.show;
 
-// The feed leaves out posts marked read or watched, and posts about a topic No AI hides.
-const inFeed = (item: FeedItem) => !isShelved(library, "archive", item.id) && !isExcluded(item, hidden);
+// The feed leaves out posts marked read or watched, posts about a topic No AI hides, and people on
+// pause. A person asked for by name shows in full, whatever their level.
+const inFeed = (item: FeedItem, filters: Filters) =>
+  !isShelved(library, "archive", item.id) && !isExcluded(item, hidden) && !(levelOf(library, item.author) === "pause" && !filters.people.has(item.author));
 
 // Whether the feed shows a post under these filters, whether it came from the archive or the deck.
-const inView = (item: FeedItem, filters: Filters) => inFeed(item) && matchesChips(item, filters) && matchesShow(item, filters);
+const inView = (item: FeedItem, filters: Filters) => inFeed(item, filters) && matchesChips(item, filters) && matchesShow(item, filters);
+
+// New shows one post a day from someone seen less, unless they were asked for by name.
+const seenLess = (filters: Filters) => (author: string) => levelOf(library, author) === "less" && !filters.people.has(author);
+
+// How likely a person is to be dealt today. Asked for by name, everyone weighs the same.
+const weightFor = (filters: Filters) => (author: string) => (filters.people.has(author) ? 1 : WEIGHT[levelOf(library, author)]);
 
 // A change to what the page shows morphs rather than flashing. Cards and controls on screen in both
 // states glide to their new places, cards that leave fade, new ones fade in, and the rest cross-fades.
@@ -804,7 +861,8 @@ function render(): void {
   renderControls(filters, chipMatches);
   rows = rowsFor(filters, chipMatches);
   rendered = 0;
-  list.replaceChildren(...(view === "feed" ? [] : [shelfHead(view, Object.keys(library[view]).length)]));
+  const person = view === "feed" && filters.people.size === 1 ? [...filters.people][0]! : undefined;
+  list.replaceChildren(...(view !== "feed" ? [shelfHead(view, Object.keys(library[view]).length)] : person ? [personHead(person, chipMatches)] : []));
 
   if (needsArchive(filters)) void loadArchive("all");
   if (rows.length === 0) {
@@ -835,7 +893,7 @@ function rowsFor(filters: Filters, chipMatches: FeedItem[]): Row[] {
   const fromDeck = todaysDeck()?.filter((item) => inView(item, filters));
   const pool = (useDeck: boolean) =>
     (useDeck && fromDeck ? fromDeck : archiveLoaded() ? visible : undefined)?.filter((item) => !isShelved(library, "favourites", item.id));
-  const deal = { now, dealt: library.dealt };
+  const deal = { now, dealt: library.dealt, weight: weightFor(filters) };
   if (filters.mode === "anytime") {
     const stackPool = pool(narrowing(filters) === 0);
     if (!stackPool) return [{ type: "dealing" }];
@@ -854,10 +912,12 @@ function rowsFor(filters: Filters, chipMatches: FeedItem[]): Row[] {
   return rows;
 }
 
-// The feed hides archived posts and excluded topics; a shelf shows exactly what you saved.
+// The feed hides archived posts, excluded topics and paused people, and New thins people seen less;
+// a shelf shows exactly what you saved.
 function viewItems(filters: Filters): FeedItem[] {
-  const source = filters.view === "feed" ? feed.items.filter(inFeed) : shelfItems(library, filters.view, new Map(loadedItems().map((item) => [item.id, item])));
-  return source.filter((item) => matchesChips(item, filters));
+  if (filters.view !== "feed") return shelfItems(library, filters.view, new Map(loadedItems().map((item) => [item.id, item]))).filter((item) => matchesChips(item, filters));
+  const items = feed.items.filter((item) => inFeed(item, filters) && matchesChips(item, filters));
+  return filters.mode === "new" ? thinLess(items, seenLess(filters)) : items;
 }
 
 // Every post this device holds: the chunks loaded so far and today's deck.
@@ -1015,16 +1075,31 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
     if (authors.has(item.author)) continue;
     if (matchesChips(item, scope) || filters.people.has(item.author)) authors.set(item.author, hueFor(item));
   }
-  // Selected people lead the list, so what is filtering the feed is never buried in the alphabet.
+  // Selected people lead the list, so what is filtering the feed is never buried in the alphabet, and
+  // anyone tuned comes next, so they are easy to find and change back.
+  const tuned = (author: string) => Number(levelOf(library, author) !== "normal");
   const ordered = [...authors].sort(
     ([a], [b]) =>
-      Number(filters.people.has(b)) - Number(filters.people.has(a)) || a.localeCompare(b, undefined, { sensitivity: "base" }),
+      Number(filters.people.has(b)) - Number(filters.people.has(a)) ||
+      tuned(b) - tuned(a) ||
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
   );
-  peopleCount.textContent = String(authors.size);
+  const paused = [...authors.keys()].filter((author) => levelOf(library, author) === "pause").length;
+  peopleCount.textContent = paused > 0 ? `${authors.size} · ${paused} paused` : String(authors.size);
   people.replaceChildren(
     ...ordered.map(([author, hue]) => {
-      const el = chip("people", author, h("span", { className: "monogram", ariaHidden: "true" }, [initial(author)]), author, hue);
+      const level = levelOf(library, author);
+      const mark = h("span", { className: "monogram", ariaHidden: "true" }, [
+        initial(author),
+        ...(level === "normal" ? [] : [h("span", { className: "level-badge" }, [icon(LEVEL_COPY[level].icon)])]),
+      ]);
+      const el = chip("people", author, mark, author, hue);
       el.dataset.name = author.toLowerCase();
+      if (level !== "normal") {
+        el.dataset.level = level;
+        el.title = `${author} (${LEVEL_COPY[level].label})`;
+        el.ariaLabel = `${author}, ${level === "pause" ? "on pause" : `seen ${level}`}`;
+      }
       return el;
     }),
   );
@@ -1251,9 +1326,17 @@ function actions(item: FeedItem, after?: (shelf: Shelf) => void): HTMLElement {
     });
     return el;
   };
+  const level = levelOf(library, item.author);
+  const tuneLabel = level === "normal" ? `Tune ${item.author}` : `Tune ${item.author} (${LEVEL_COPY[level].label})`;
+  const tune = h("button", { type: "button", className: "act act-tune", title: tuneLabel, ariaLabel: tuneLabel, ariaHasPopup: "dialog" }, [
+    icon(level === "normal" ? "i-person" : LEVEL_COPY[level].icon),
+  ]);
+  tune.dataset.level = level;
+  tune.addEventListener("click", () => openPersonSheet(item, tune));
   return h("div", { className: "actions" }, [
     button("favourites", "i-heart", "Remove from favourites", "Add to favourites"),
     button("archive", "i-check", `Mark as not ${done}`, `Mark as ${done}`),
+    tune,
   ]);
 }
 
@@ -1560,6 +1643,7 @@ function renderDealing(): HTMLElement {
 function renderEnd(): HTMLElement {
   const skipped = feed.errors.length;
   const hiddenCount = feed.items.filter((item) => !isShelved(library, "archive", item.id) && isExcluded(item, hidden)).length;
+  const paused = tunedPeople(library).filter(([, tuned]) => tuned.level === "pause").length;
   return moment({
     mood: "sleepy",
     title: "That's everything",
@@ -1568,9 +1652,132 @@ function renderEnd(): HTMLElement {
       `Updated ${ago(feed.generatedAt)}.`,
       "Calmer YouTube titles and thumbnails from DeArrow (CC BY-NC-SA 4.0).",
       ...(hiddenCount > 0 ? [`${hiddenCount} post${hiddenCount === 1 ? "" : "s"} hidden by your filters.`] : []),
+      ...(paused > 0 ? [`${paused} ${paused === 1 ? "person" : "people"} on pause.`] : []),
       ...(skipped > 0 ? [`${skipped} source${skipped === 1 ? "" : "s"} couldn't be reached.`] : []),
     ].join(" "),
   });
+}
+
+// How much of a person to show: one track of four stops, as native radios so arrow keys move along it.
+function levelControl(author: string, where: "sheet" | "head"): HTMLElement {
+  const current = levelOf(library, author);
+  const options = LEVELS.map((level) => {
+    const input = h("input", { type: "radio", name: `level-${where}`, value: level, checked: level === current });
+    input.addEventListener("change", () => input.checked && tune(author, level));
+    return h("label", { className: "level", dataset: { level } }, [input, icon(LEVEL_COPY[level].icon), h("span", {}, [LEVEL_COPY[level].label])]);
+  });
+  const control = h("fieldset", { className: "levels", ariaLabel: `How much of ${author} to show`, dataset: { author, where } }, [
+    h("div", { className: "level-track" }, options),
+    h("p", { className: "level-note" }, []),
+  ]);
+  fillLevelNote(control, current);
+  return control;
+}
+
+function fillLevelNote(control: HTMLElement, level: Level): void {
+  // Filtered to one person, their posts show whatever their level, so the head says why.
+  const asked = control.dataset.where === "head" && level === "pause";
+  control.querySelector(".level-note")!.textContent = asked ? "On pause. Their posts show here because you asked for them by name." : LEVEL_COPY[level].note;
+}
+
+// A change applies at once underneath: cards that no longer belong fold away, and the controls and
+// every other control for the same person follow.
+function tune(author: string, level: Level): void {
+  saveLibrary(setLevel(library, author, level, new Date()));
+  for (const control of document.querySelectorAll<HTMLElement>(".levels")) {
+    if (control.dataset.author !== author) continue;
+    for (const input of control.querySelectorAll<HTMLInputElement>("input")) input.checked = input.value === level;
+    fillLevelNote(control, level);
+  }
+  if (!feed) return;
+  // A shelf shows what you saved whatever the level, so only its cards' tune buttons change.
+  if (readFilters().view === "feed") settleCards();
+  else render();
+}
+
+function openPersonSheet(item: FeedItem, opener: HTMLElement): void {
+  personOpener = { el: opener, id: item.id };
+  renderPersonSheet(item);
+  if (!personSheet.open) personSheet.showModal();
+  placePersonSheet();
+  personSheet.querySelector<HTMLInputElement>("input:checked")?.focus({ focusVisible: false } as FocusOptions);
+}
+
+function renderPersonSheet(item: FeedItem): void {
+  const author = item.author;
+  const filters = readFilters();
+  const now = new Date();
+  const theirs = feed.items.filter((post) => post.author === author);
+  const week = theirs.filter((post) => isFresh(post, now)).length;
+  const tags = [...new Set(theirs.flatMap((post) => post.tags))];
+  const close = h("button", { type: "button", className: "sheet-close", ariaLabel: "Close" }, [icon("i-x")]);
+  close.addEventListener("click", () => personSheet.close());
+  const onlyThem = filters.view === "feed" && filters.people.size === 1 && filters.people.has(author);
+  const only = h("button", { type: "button", className: "button quiet person-only" }, [`Only show ${author}`]);
+  only.addEventListener("click", () => {
+    personSheet.close();
+    writeFilters({ ...filters, view: "feed", people: new Set([author]) });
+  });
+  personSheet.dataset.hue = hueFor(item);
+  personSheet.replaceChildren(
+    h("header", { className: "person-sheet-head" }, [
+      h("span", { className: "monogram", ariaHidden: "true" }, [initial(author)]),
+      h("div", { className: "who" }, [
+        h("h2", { id: "person-title" }, [author]),
+        h("p", {}, [[week === 0 ? "Nothing new this week" : `${week} new this week`, ...tags].join(" · ")]),
+      ]),
+      close,
+    ]),
+    levelControl(author, "sheet"),
+    ...(onlyThem ? [] : [only]),
+    h("p", { className: "fine" }, [syncSetup ? "Syncs to your other devices with your sync words." : "On this device only. Sync words, under Favourites, carry it to your other devices."]),
+  );
+}
+
+// The tune button that opened the sheet, or the same card's button once that card has re-rendered.
+function liveOpener(): HTMLElement | undefined {
+  if (!personOpener) return undefined;
+  if (personOpener.el.isConnected) return personOpener.el;
+  const again = document.querySelector<HTMLElement>(`.card[data-id="${CSS.escape(personOpener.id)}"] .act-tune, .viewer .act-tune`);
+  if (again) personOpener.el = again;
+  return again ?? undefined;
+}
+
+// Phones get a bottom sheet. On desktop it is a popover beside the button that opened it: below it,
+// or above when the screen runs out, and always inside the screen.
+function placePersonSheet(): void {
+  const opener = liveOpener();
+  if (!railLayout.matches) {
+    personSheet.style.removeProperty("left");
+    personSheet.style.removeProperty("top");
+    return;
+  }
+  if (!opener) return;
+  const at = opener.getBoundingClientRect();
+  const width = personSheet.offsetWidth;
+  const height = personSheet.offsetHeight;
+  const left = Math.min(Math.max(16, at.right - width), innerWidth - width - 16);
+  const below = at.bottom + 10;
+  const top = below + height <= innerHeight - 16 ? below : Math.max(16, at.top - height - 10);
+  personSheet.style.left = `${left}px`;
+  personSheet.style.top = `${top}px`;
+}
+
+// Filtered down to one person, the feed opens with their name and the same control, which is where a
+// paused person is resumed.
+function personHead(author: string, items: FeedItem[]): HTMLElement {
+  const first = loadedItems().find((item) => item.author === author);
+  const everyone = h("button", { type: "button", className: "button quiet" }, ["Show everyone"]);
+  everyone.addEventListener("click", () => writeFilters({ ...readFilters(), people: new Set() }));
+  const count = items.length;
+  return h("header", { className: "person-head", dataset: { hue: first ? hueFor(first) : hueOf(author) } }, [
+    h("div", { className: "person-id" }, [
+      h("span", { className: "monogram", ariaHidden: "true" }, [initial(author)]),
+      h("h2", {}, [author, h("span", { className: "count", title: `${count} post${count === 1 ? "" : "s"}` }, [count.toLocaleString()])]),
+    ]),
+    everyone,
+    levelControl(author, "head"),
+  ]);
 }
 
 function moment(options: {

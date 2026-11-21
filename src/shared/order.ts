@@ -55,7 +55,8 @@ export function dayKey(date: Date): string {
 // reload deals the same cards.
 export type Dealt = Readonly<Record<string, string>>;
 
-type Deal = { now: Date; dealt: Dealt };
+// `weight` is how likely a source is to take an early turn, 1 by default (see `turns`).
+type Deal = { now: Date; dealt: Dealt; weight?: (author: string) => number };
 
 export const isFresh = (item: Orderable, now: Date) => item.publishedAt >= new Date(now.getTime() - FRESH_MS).toISOString();
 
@@ -78,7 +79,7 @@ export function dealHand<T extends Dealable>(items: readonly T[], { fresh, ...de
   const count = Math.min(HAND_MAX, Math.floor(fresh.length / HAND_EVERY));
   if (count === 0) return [];
   const active = new Set(fresh.map((item) => item.author));
-  return turns(poolOf(items, deal), handSeed(dayKey(deal.now)), count, (author) => (active.has(author) ? 1 : 0));
+  return turns(poolOf(items, deal), handSeed(dayKey(deal.now)), count, (author) => (active.has(author) ? 1 : 0), deal.weight);
 }
 
 // Today's Anytime stack number `stack` (from 1): posts from any year but this week, with every
@@ -88,8 +89,10 @@ export function dealStack<T extends Dealable>(items: readonly T[], { stack, ...d
   const day = dayKey(deal.now);
   const pool = poolOf(items, deal);
   // Kept for as long as the day and the pool stay the same, so a pull or "Keep digging" only slices.
-  const key = `${day}|${pool.length}|${hash(day, pool.map((item) => item.id).join("\n"))}`;
-  if (stacks?.key !== key) stacks = { key, order: turns(pool, stackSeed(day), pool.length) };
+  // Weights are part of the key, so seeing someone more or less deals the day's order again.
+  const weights = deal.weight ? [...new Set(pool.map((item) => item.author))].map((author) => `${author}=${deal.weight!(author)}`).join("\n") : "";
+  const key = `${day}|${pool.length}|${hash(day, pool.map((item) => item.id).join("\n"))}|${hash(day, weights)}`;
+  if (stacks?.key !== key) stacks = { key, order: turns(pool, stackSeed(day), pool.length, undefined, deal.weight) };
   return (stacks.order as T[]).slice((stack - 1) * STACK_SIZE, stack * STACK_SIZE);
 }
 
@@ -133,14 +136,24 @@ const best = <T extends Dealable>(posts: readonly T[], seed: string, count: numb
 // Sources take turns: each one's best post by the day's hash, then each one's second best, and so on.
 // Ranking by a hash of the post id, not by its position, keeps a card in place when another post leaves
 // the pool (archived on another device, or a new post arriving).
+// The order of the sources is a weighted draw from the day's hash (each source's key is -ln(u) / weight,
+// smallest first), so a source with weight 3 is three times as likely as a normal one to go before any
+// given source. With every weight at 1 this is plain hash order. With far more sources than a stack has
+// cards, that order decides who gets a seat today.
 // Each post and source is hashed once, and only the first `limit` turns are taken.
-function turns<T extends Dealable>(items: readonly T[], seed: string, limit: number, priority: (author: string) => number = () => 0): T[] {
+function turns<T extends Dealable>(
+  items: readonly T[],
+  seed: string,
+  limit: number,
+  priority: (author: string) => number = () => 0,
+  weight: (author: string) => number = () => 1,
+): T[] {
   const bySource = Map.groupBy(
     items.map((item) => ({ item, rank: hash(seed, item.id) })),
     ({ item }) => item.author,
   );
   const queues = [...bySource]
-    .map(([author, posts]) => ({ priority: priority(author), rank: hash(seed, author), posts: posts.sort((a, b) => a.rank - b.rank) }))
+    .map(([author, posts]) => ({ priority: priority(author), rank: drawKey(hash(seed, author), weight(author)), posts: posts.sort((a, b) => a.rank - b.rank) }))
     .sort((a, b) => a.priority - b.priority || a.rank - b.rank);
   const out: T[] = [];
   const total = Math.min(limit, items.length);
@@ -152,6 +165,9 @@ function turns<T extends Dealable>(items: readonly T[], seed: string, limit: num
   }
   return out;
 }
+
+// u in (0, 1] from a 32-bit hash; -ln(u) / w is an exponential draw with rate w.
+const drawKey = (h: number, w: number) => -Math.log((h + 1) / 2 ** 32) / w;
 
 // FNV-1a: small, fast, and the same on every device.
 function hash(seed: string, text: string): number {

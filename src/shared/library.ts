@@ -1,3 +1,4 @@
+import { LEVELS, type Level } from "./tuning";
 import { SOURCE_KINDS, type FeedItem } from "./types";
 
 export type Shelf = "favourites" | "archive";
@@ -8,9 +9,25 @@ export type Saved = { item: FeedItem; at: string };
 // on another when two libraries merge. Without it, a merge could only ever add.
 // `dealt` is the day (YYYY-MM-DD) each post was last dealt into a hand or a stack, so other days and
 // other devices deal something else.
-export type Library = Record<Shelf, Record<string, Saved>> & { removed: Record<Shelf, Record<string, string>>; dealt: Record<string, string> };
+// `people` is how much of each person (by collection name) the feed shows, with when it was set, so
+// the latest setting wins a merge. Setting someone back to normal is kept as a change too.
+export type Tuned = { level: Level; at: string };
+export type Library = Record<Shelf, Record<string, Saved>> & {
+  removed: Record<Shelf, Record<string, string>>;
+  dealt: Record<string, string>;
+  people: Record<string, Tuned>;
+};
 
-export const emptyLibrary = (): Library => ({ favourites: {}, archive: {}, removed: { favourites: {}, archive: {} }, dealt: {} });
+export const emptyLibrary = (): Library => ({ favourites: {}, archive: {}, removed: { favourites: {}, archive: {} }, dealt: {}, people: {} });
+
+export const levelOf = (library: Library, author: string): Level => library.people[author]?.level ?? "normal";
+
+export function setLevel(library: Library, author: string, level: Level, now: Date): Library {
+  return { ...library, people: { ...library.people, [author]: { level, at: now.toISOString() } } };
+}
+
+// Everyone set to something other than normal.
+export const tunedPeople = (library: Library) => Object.entries(library.people).filter(([, tuned]) => tuned.level !== "normal");
 
 // Long enough that a post doesn't come back soon; short enough that the list stays small.
 export const DEALT_KEEP_DAYS = 90;
@@ -55,6 +72,13 @@ export function mergeLibraries(a: Library, b: Library): Library {
       if (seen === undefined || seen < day) merged.dealt[id] = day;
     }
   }
+  // Per person, the later setting wins; on a tie, the one that shows less, so a pause is never lost.
+  for (const side of [a, b]) {
+    for (const [author, tuned] of Object.entries(side.people)) {
+      const seen = merged.people[author];
+      if (!seen || seen.at < tuned.at || (seen.at === tuned.at && LEVELS.indexOf(tuned.level) > LEVELS.indexOf(seen.level))) merged.people[author] = tuned;
+    }
+  }
   for (const shelf of SHELVES) {
     const ids = new Set([a, b].flatMap((side) => [...Object.keys(side[shelf]), ...Object.keys(side.removed[shelf])]));
     for (const id of ids) {
@@ -69,7 +93,7 @@ export function mergeLibraries(a: Library, b: Library): Library {
 }
 
 export function sameLibrary(a: Library, b: Library): boolean {
-  return sameKeys(a.dealt, b.dealt, (x, y) => x === y) && SHELVES.every(
+  return sameKeys(a.dealt, b.dealt, (x, y) => x === y) && sameKeys(a.people, b.people, (x, y) => x.level === y.level && x.at === y.at) && SHELVES.every(
     (shelf) =>
       sameKeys(a[shelf], b[shelf], (x, y) => x.at === y.at) && sameKeys(a.removed[shelf], b.removed[shelf], (x, y) => x === y),
   );
@@ -92,6 +116,11 @@ export function parseLibrary(raw: unknown): Library {
   if (!isRecord(raw)) return library;
   if (isRecord(raw.dealt)) {
     for (const [id, day] of Object.entries(raw.dealt)) if (typeof day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(day)) library.dealt[id] = day;
+  }
+  if (isRecord(raw.people)) {
+    for (const [author, tuned] of Object.entries(raw.people)) {
+      if (isRecord(tuned) && typeof tuned.at === "string" && LEVELS.includes(tuned.level as Level)) library.people[author] = { level: tuned.level as Level, at: tuned.at };
+    }
   }
   for (const shelf of SHELVES) {
     const entries = raw[shelf];

@@ -126,6 +126,8 @@
 
     <dialog class="viewer" aria-label="Post"></dialog>
 
+    <dialog class="person-sheet" aria-labelledby="person-title"></dialog>
+
     <dialog class="sync-sheet" aria-labelledby="sync-title">
       <header class="sync-head">
         <h2 id="sync-title">Sync your lists</h2>
@@ -134,7 +136,7 @@
         </button>
       </header>
       <form class="sync-guest">
-        <p>Type the same words on each of your devices, and your favourites and archive follow you between them. There is no account. Anyone who types these words sees the same lists, so pick a phrase only you would.</p>
+        <p>Type the same words on each of your devices, and your favourites, your archive and who you see more or less of follow you between them. There is no account. Anyone who types these words sees the same lists, so pick a phrase only you would.</p>
         <label class="sync-label" for="sync-words">Your sync words</label>
         <input class="sync-words" id="sync-words" name="words" type="text" required minlength="8" placeholder="e.g. sunny sprout reads at night" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" />
         <p class="fine">At least 8 letters. Capitals and extra spaces don't matter. What's on this device joins the synced lists.</p>
@@ -182,6 +184,11 @@
         <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7ZM14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8" /></symbol>
         <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2.5" /><circle cx="9" cy="17" r="2.5" /></symbol>
         <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+        <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0" /></symbol>
+        <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" /></symbol>
+        <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M5.5 12.5 12 19l6.5-6.5" /></symbol>
+        <symbol id="i-level" viewBox="0 0 24 24"><path d="M5 12h14" /></symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5.5v13M15 5.5v13" /></symbol>
         <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9" /></symbol>
       </defs>
     </svg>
