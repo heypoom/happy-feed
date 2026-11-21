@@ -114,6 +114,19 @@
     { "name": "Look Mum No Computer", "youtube": "https://www.youtube.com/@LOOKMUMNOCOMPUTER", "tags": ["Play"] },
     { "name": "Journey to the Microcosmos", "youtube": "https://www.youtube.com/@journeytomicro", "tags": ["STEM"] },
     { "name": "Clickspring", "youtube": "https://www.youtube.com/@Clickspring", "tags": ["STEM"] },
-    { "name": "Craig Mod", "rss": "https://craigmod.com/index.xml", "tags": ["Play"] }
+    { "name": "Craig Mod", "rss": "https://craigmod.com/index.xml", "tags": ["Play"] },
+    { "name": "Future of Coding", "rss": "https://omny.fm/shows/future-of-coding/playlists/podcast.rss", "tags": ["HCI"] },
+    { "name": "Tom MacWright", "rss": "https://macwright.com/rss.xml", "archive": "https://macwright.com/writing", "tags": ["HCI"] },
+    { "name": "Josh Comeau", "rss": "https://www.joshwcomeau.com/rss.xml", "tags": ["HCI"] },
+    { "name": "Bob Nystrom", "rss": "https://journal.stuffwithstuff.com/rss.xml", "archive": "https://journal.stuffwithstuff.com/archive/", "tags": ["Computer Science"] },
+    { "name": "SimonDev", "youtube": "https://www.youtube.com/@simondev758", "tags": ["Creative Coding"] },
+    { "name": "NileRed", "youtube": "https://www.youtube.com/@NileRed", "tags": ["STEM"] },
+    { "name": "Branch Education", "youtube": "https://www.youtube.com/@BranchEducation", "tags": ["STEM"] },
+    { "name": "Linus Boman", "youtube": "https://www.youtube.com/@linusboman", "tags": ["Design"] },
+    { "name": "Stewart Hicks", "youtube": "https://www.youtube.com/@StewartHicks", "tags": ["Design"] },
+    { "name": "xkcd / What If?", "rss": "https://xkcd.com/atom.xml", "tags": ["Play"] },
+    { "name": "xkcd / What If?", "rss": "https://what-if.xkcd.com/feed.atom", "tags": ["Play"] },
+    { "name": "kottke.org", "rss": "https://feeds.kottke.org/main", "tags": ["Play"] },
+    { "name": "Jay Foreman", "youtube": "https://www.youtube.com/@JayAndMark", "tags": ["Play"] }
   ]
 }
