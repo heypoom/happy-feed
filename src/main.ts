@@ -78,6 +78,8 @@ const NETWORK: Partial<Record<SourceKind, { name: string; load: (item: FeedItem)
 const shelfLinks = [...document.querySelectorAll<HTMLButtonElement>(".shelf-link")];
 const modes = document.querySelector<HTMLElement>(".modes")!;
 const modeButtons = [...document.querySelectorAll<HTMLButtonElement>(".mode")];
+const redeal = document.querySelector<HTMLButtonElement>(".redeal")!;
+const redealLabel = redeal.querySelector<HTMLElement>(".label")!;
 const SHELF_COPY: Record<Shelf, { title: string; empty: string }> = {
   favourites: { title: "Favourites", empty: "Tap the heart on anything you love and it will wait for you here." },
   archive: { title: "Archive", empty: "Mark posts as read or watched and they rest here, out of your feed." },
@@ -179,6 +181,21 @@ for (const button of modeButtons) {
     writeFilters({ ...filters, view: "feed", mode: button.dataset.mode as Mode });
   });
 }
+// A mouse can't pull, so in Anytime this deals the next stack as a pull does. It is only an icon; what
+// happened shows beside it for a moment, then goes.
+let redealNote: ReturnType<typeof setTimeout> | undefined;
+redeal.addEventListener("click", async () => {
+  if (redeal.classList.contains("busy") || !feed) return;
+  clearTimeout(redealNote);
+  redeal.classList.remove("noted");
+  redeal.classList.add("busy");
+  const message = await pullRefresh();
+  redeal.classList.remove("busy");
+  redealLabel.textContent = message;
+  pullStatus.textContent = message;
+  redeal.classList.add("noted");
+  redealNote = setTimeout(() => redeal.classList.remove("noted"), 1600);
+});
 renderModes(readFilters());
 requestAnimationFrame(() => requestAnimationFrame(() => modes.classList.add("ready")));
 
@@ -971,6 +988,7 @@ function renderModes(filters: Filters): void {
   for (const button of modeButtons) {
     button.setAttribute("aria-pressed", String(filters.view === "feed" && button.dataset.mode === filters.mode));
   }
+  redeal.hidden = filters.view !== "feed" || filters.mode !== "anytime";
 }
 
 function renderControls(filters: Filters, chipMatches: FeedItem[]): void {

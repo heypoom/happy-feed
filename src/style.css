@@ -436,6 +436,76 @@ button {
   transform: scaleX(1);
 }
 
+/* Pull to refresh's twin for a mouse, at the far end of the row in Anytime only: a muted icon, with
+   what happened written beside it for a moment after a click. Touch screens pull instead. */
+.redeal {
+  display: none;
+  align-self: center;
+  align-items: center;
+  flex-direction: row-reverse;
+  gap: 8px;
+  min-width: 36px;
+  min-height: 36px;
+  margin-left: auto;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.25s var(--ease-out);
+}
+
+.redeal .icon {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.5s var(--ease-out);
+}
+
+.redeal .label {
+  opacity: 0;
+  transition: opacity 0.4s var(--ease-out);
+}
+
+.redeal.noted .label {
+  opacity: 1;
+  transition-duration: 0.15s;
+}
+
+.redeal:hover {
+  color: var(--text);
+}
+
+.redeal:hover .icon {
+  transform: rotate(90deg);
+}
+
+.redeal.busy .icon {
+  animation: redeal-spin 0.9s linear infinite;
+}
+
+@keyframes redeal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .redeal:not([hidden]) {
+    display: inline-flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .redeal .icon,
+  .redeal.busy .icon {
+    animation: none;
+    transition: none;
+  }
+}
+
 /* Controls */
 
 /* Below the rail breakpoint the rail is only a wrapper, so the controls can stick to the page, not to it. */

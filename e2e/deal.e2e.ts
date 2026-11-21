@@ -56,3 +56,17 @@ test("a shelf folds New and Anytime away, and the feed brings them back", async 
   await expect(page.getByRole("button", { name: "New" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Anytime" })).toBeVisible();
 });
+
+test("in Anytime, a mouse gets a quiet button that deals as a pull does", async ({ page, isMobile }) => {
+  await page.goto("/?feed=anytime");
+  await expect(cards(page)).toHaveCount(1);
+  const redeal = page.getByRole("button", { name: "Deal another stack" });
+  if (isMobile) return await expect(redeal).toBeHidden();
+  await expect(redeal).toBeVisible();
+  await redeal.click();
+  // The fixture's one older post is the whole archive, so there is no second stack.
+  await expect(page.locator(".redeal.noted")).toHaveText("That's every stack for today");
+  await expect(page.locator(".redeal.noted")).toHaveCount(0, { timeout: 4000 });
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await expect(redeal).toBeHidden();
+});
