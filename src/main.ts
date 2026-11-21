@@ -1029,7 +1029,12 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
     el.dataset.key = `${group}:${value}`;
     if (hue) el.dataset.hue = hue;
     el.setAttribute("aria-pressed", String(active));
-    el.addEventListener("click", () => {
+    el.addEventListener("click", (event) => {
+      // Cmd/Ctrl-click a person: show only them, dropping the other people.
+      if (group === "people" && (event.metaKey || event.ctrlKey)) {
+        writeFilters({ ...filters, people: new Set([value]) });
+        return;
+      }
       const next = new Set(filters[group]);
       if (active) next.delete(value);
       else next.add(value);
