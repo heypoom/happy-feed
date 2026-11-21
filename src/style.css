@@ -1638,14 +1638,6 @@ html:has(.person-sheet[open]) {
   box-shadow: none;
 }
 
-.person-sheet .fine {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.8rem;
-  text-align: center;
-  text-wrap: pretty;
-}
-
 /* Person head: the top of a feed filtered to one person, with the same control on a surface track. */
 .person-head {
   display: flex;

@@ -1730,7 +1730,6 @@ function renderPersonSheet(item: FeedItem): void {
     ]),
     levelControl(author, "sheet"),
     ...(onlyThem ? [] : [only]),
-    h("p", { className: "fine" }, [syncSetup ? "Syncs to your other devices with your sync words." : "On this device only. Sync words, under Favourites, carry it to your other devices."]),
   );
 }
 
