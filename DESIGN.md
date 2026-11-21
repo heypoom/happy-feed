@@ -47,6 +47,12 @@ colors:
   lime-wash: "#ebf7d3"
   lime-solid: "#8fce2e"
   lime-ink: "#3b5a0a"
+  orchid-wash: "#f8e1fb"
+  orchid-solid: "#d36ee8"
+  orchid-ink: "#6e1a80"
+  coral-wash: "#ffe3df"
+  coral-solid: "#ff7566"
+  coral-ink: "#85211a"
 typography:
   display:
     fontFamily: "Bricolage Grotesque, ui-rounded, system-ui, sans-serif"
@@ -193,14 +199,14 @@ components:
 
 **Creative North Star: "The Tile Box"**
 
-Happy Feed is a box of colorful index tiles. Every tag owns a hue, and every card says up front whether it is something to watch or something to read. The ground is quiet (a cool lilac-white by day, a deep violet night after dark), so the eight tag hues carry the cheer. Everything is chunky and rounded and drawn with a soft hand. Nibble's category-colored tiles and Pi's warm mixed card shapes are the references.
+Happy Feed is a box of colorful index tiles. Every tag owns a hue, and every card says up front whether it is something to watch or something to read. The ground is quiet (a cool lilac-white by day, a deep violet night after dark), so the ten tag hues carry the cheer. Everything is chunky and rounded and drawn with a soft hand. Nibble's category-colored tiles and Pi's warm mixed card shapes are the references.
 
 Density is relaxed: one column on a phone, used one-handed in bed, with generous gaps between cards. On desktop a sticky rail holds the controls and the feed becomes a grid of tiles. The sprout mascot appears in the masthead and again at the stopping points ("caught up", "that's everything", empty and error states), so the moments where the feed ends feel friendly.
 
 Light and dark are equal citizens. A header toggle switches between them and there is no settings screen. The voice is warm and never alarmed: no red warnings, no badges asking for attention.
 
 **Key Characteristics:**
-- Eight tag hues (sun, tangerine, mint, sky, grape, berry, teal, lime), each with a wash, a solid and an ink.
+- Ten tag hues (sun, tangerine, mint, sky, grape, berry, teal, lime, orchid, coral), each with a wash, a solid and an ink.
 - Watch and read cards have different anatomy, not only a different label.
 - Two voices: Bricolage Grotesque for the UI and watch titles, Literata for reading.
 - Pill and 24px-tile geometry everywhere, with drawn icons on a 2px round stroke.
@@ -208,7 +214,7 @@ Light and dark are equal citizens. A header toggle switches between them and the
 
 ## Colors
 
-A quiet lilac or violet ground under eight bright tag hues, with one violet accent reserved for the active control.
+A quiet lilac or violet ground under ten bright tag hues, with one violet accent reserved for the active control.
 
 ### Primary
 - **Electric Violet** (accent; night: night-accent): fills the active format tab and the one action button inside a moment. It also sets the focus ring. It is never used for content.
@@ -223,6 +229,8 @@ Each hue is a triple. The **wash** is the tile and chip-selected background. The
 - **Berry** (berry-wash / berry-solid / berry-ink)
 - **Teal** (teal-wash / teal-solid / teal-ink)
 - **Lime** (lime-wash / lime-solid / lime-ink)
+- **Orchid** (orchid-wash / orchid-solid / orchid-ink)
+- **Coral** (coral-wash / coral-solid / coral-ink)
 
 ### Mascot
 - **Sunny** with **Sunny Ink**: the sprout's face. Sunny is also the text-selection highlight.
@@ -238,7 +246,7 @@ Each hue is a triple. The **wash** is the tile and chip-selected background. The
 - **Ink on Solid** (fixed in both themes): text and icons on any tag solid (format pill, play button, monogram). The solids are bright in both themes, so this dark ink does not flip.
 
 ### Named Rules
-**The Hue Owns the Card Rule.** A card takes the hue of its first tag, falling back to a hash of the author. Tags are assigned hues in sorted order through the sequence sky, sun, berry, mint, grape, tangerine, teal, lime, so neighbors contrast and a small tag set never lands on three warm hues in a row. Never pick a hue by hand for a single card.
+**The Hue Owns the Card Rule.** A card takes the hue of its first tag, falling back to a hash of the author. Tags are assigned hues in sorted order through the sequence sky, sun, berry, mint, grape, tangerine, teal, lime, orchid, coral, so neighbors contrast and a small tag set never lands on three warm hues in a row. Never pick a hue by hand for a single card.
 
 **The Accent Is a Control Rule.** Electric Violet marks only the selected tab, the moment action and focus. Content gets its color from the tag hues and never from the accent.
 
@@ -279,7 +287,7 @@ Depth is soft and ambient. One two-layer shadow, tinted cool violet in light and
 
 ## Shapes
 
-The form language is chunky and rounded. Every control is a full pill: tabs, chips, format pills, tags and buttons. Cards and thumbnails are 24px tiles. Moments are rounder still at 32px. Inline thumbnails on read cards use 16px corners, and monograms use 10px. The theme toggle, play button and "go" arrow are circles. Borders are rare: only idle chips have one (1.5px, in the line color). Icons are drawn SVG symbols at 2px stroke with round caps and joins, 20px by default and 13 to 22px in context. Play and format glyphs are filled.
+The form language is chunky and rounded. Every control is a full pill: tabs, chips, format pills, tags and buttons. Cards and thumbnails are 24px tiles. Moments are rounder still at 32px. Inline thumbnails on read cards use 16px corners, and monograms use 10px. The theme toggle and play button are circles. Borders are rare: only idle chips have one (1.5px, in the line color). Icons are drawn SVG symbols at 2px stroke with round caps and joins, 20px by default and 13 to 22px in context. Play and format glyphs are filled.
 
 ## Components
 
@@ -310,7 +318,7 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 
 ### Read Card
 - **Character:** a tinted tile that works with no image at all.
-- A wash tile with 24px corners and 18px padding (22px/24px at 720px and up). The byline leads with a 32px monogram (the author's initial on the hue's solid). The Literata title sits beside an optional 76px (96px) inline thumbnail. The summary below is clamped to four lines. The footer has the tags and a 32px circular "go" arrow, which rotates 45 degrees on hover. The whole tile is the link, and focus outlines the whole tile.
+- A wash tile with 24px corners and 18px padding (22px/24px at 720px and up). The byline leads with a 32px monogram (the author's initial on the hue's solid). The Literata title sits beside an optional 76px (96px) inline thumbnail. The summary below is clamped to four lines. The footer has the tags and the action buttons; there is no separate "go" arrow, since the whole tile is the link. Focus outlines the whole tile. A long tag that would wrap beside the actions shows its short name (Computer Science becomes CompSci) once the footer is under 17rem, with the full name in its tooltip.
 - **Post card:** for Bluesky and Mastodon. A surface-colored speech bubble (24px corners, 6px bottom-left) that leads with the post text in Bricolage 500 at 1.125rem, then an optional image, then tags. Words lead, because social posts have no title. Post images use the 16:9 frame of video thumbnails, and in the desktop grid the text stops at 5 lines, so no single post sets a whole row's height; the viewer shows both in full.
 - **People chips:** a second chip row with a round monogram in the person's hue. It filters by author and combines with tags and sources.
 - **Post viewer:** a native `<dialog>`. On phones it is a bottom sheet (28px top corners, grab bar, max 88dvh) that slides up 48px; on desktop it is a 540px right panel that slides in. Post text is Bricolage 500 at 1.2rem in `pre-wrap`; images sit in a 2-column grid with 20px outer corners; link cards and quotes are bordered or washed tiles. The footer holds the card actions and one accent "Open on …" link.
@@ -327,7 +335,7 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 - **People list:** on desktop, a "People · N" heading with a "Find a person" box above a two-column grid of 32px rows (22px monogram, name truncated with the full name in the tooltip). Typing filters as you go, Enter picks the first unselected match, Esc clears the search before it clears filters. A tag filter narrows the list and its count to the people posting under it. Selected people always stay listed and sort first, people seen more next; less and paused people keep their alphabetical place. A tuned person's monogram carries a 15px badge (12px in the rail) on its lower right: a text-colored disc with a surface ring and the stop's glyph. A paused row is muted, with its monogram at 30% hue on the line color. Phones show the same list in the filter sheet with 40px rows.
 - **Clear chip:** appears first in the rail's chip list only while a filter is on, as a filled accent pill with an × and the number of active filters. On phones it leads the active strip instead, sticky at its left edge and masked by the ground, and the sheet footer has "Clear all". Esc does the same (when the sheet is closed). It clears tags, sources, people and the format tab, but keeps the current list and No AI.
 - **Hide chip:** a neutral chip with an eye-off icon that leads the chip row. It is labeled "No <topic>" and fills with the text color when on, so it reads as a setting rather than a tag.
-- **Jewel variant:** with no image, the tile deepens to the jewel mix. The monogram and format pill invert to on-jewel, tags are outlined (1.5px, 45% on-jewel) rather than tinted, and the go arrow sits on a 14% on-jewel tint. The byline time uses full on-jewel ink.
+- **Jewel variant:** with no image, the tile deepens to the jewel mix. The monogram and format pill invert to on-jewel, tags are outlined (1.5px, 45% on-jewel) rather than tinted. The byline time uses full on-jewel ink.
 
 ### Byline, Format Pill and Tags
 - The byline shows the author in bold, then a format pill (the hue's solid with Ink on Solid text and a filled play or book glyph), then the relative time pushed to the end.

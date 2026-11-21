@@ -41,6 +41,12 @@
   --lime-wash: #ebf7d3;
   --lime-solid: #8fce2e;
   --lime-ink: #3b5a0a;
+  --orchid-wash: #f8e1fb;
+  --orchid-solid: #d36ee8;
+  --orchid-ink: #6e1a80;
+  --coral-wash: #ffe3df;
+  --coral-solid: #ff7566;
+  --coral-ink: #85211a;
 
   --display: "Bricolage Grotesque", ui-rounded, system-ui, sans-serif;
   --reading: "Literata", Georgia, serif;
@@ -91,6 +97,12 @@
     --lime-wash: #22301a;
     --lime-solid: #a6e05a;
     --lime-ink: #def7b8;
+    --orchid-wash: #2e1a38;
+    --orchid-solid: #e08cf2;
+    --orchid-ink: #f3cdfb;
+    --coral-wash: #361c1c;
+    --coral-solid: #ff8f80;
+    --coral-ink: #ffd0c9;
     color-scheme: dark;
   }
 }
@@ -135,6 +147,12 @@
   --lime-wash: #22301a;
   --lime-solid: #a6e05a;
   --lime-ink: #def7b8;
+  --orchid-wash: #2e1a38;
+  --orchid-solid: #e08cf2;
+  --orchid-ink: #f3cdfb;
+  --coral-wash: #361c1c;
+  --coral-solid: #ff8f80;
+  --coral-ink: #ffd0c9;
   color-scheme: dark;
 }
 
@@ -146,6 +164,8 @@
 [data-hue="berry"] { --wash-base: var(--berry-wash); --wash: var(--berry-wash); --solid: var(--berry-solid); --ink: var(--berry-ink); }
 [data-hue="teal"] { --wash-base: var(--teal-wash); --wash: var(--teal-wash); --solid: var(--teal-solid); --ink: var(--teal-ink); }
 [data-hue="lime"] { --wash-base: var(--lime-wash); --wash: var(--lime-wash); --solid: var(--lime-solid); --ink: var(--lime-ink); }
+[data-hue="orchid"] { --wash-base: var(--orchid-wash); --wash: var(--orchid-wash); --solid: var(--orchid-solid); --ink: var(--orchid-ink); }
+[data-hue="coral"] { --wash-base: var(--coral-wash); --wash: var(--coral-wash); --solid: var(--coral-solid); --ink: var(--coral-ink); }
 
 *,
 *::before,
@@ -1240,11 +1260,6 @@ html:has(.filter-sheet[open]) {
   color: var(--on-jewel);
 }
 
-.read.jewel .go {
-  background: color-mix(in srgb, var(--on-jewel) 14%, transparent);
-  color: var(--on-jewel);
-}
-
 .read .byline,
 .read .byline .author {
   color: var(--ink);
@@ -1316,32 +1331,30 @@ html:has(.filter-sheet[open]) {
   margin-top: auto;
 }
 
+/* A long tag beside the three actions wraps below about 264px of footer, so it shows its short name. */
+.foot {
+  container-type: inline-size;
+}
+
+.tag-short {
+  display: none;
+}
+
+@container (max-width: 17rem) {
+  .tags .tag-full {
+    display: none;
+  }
+
+  .tags .tag-short {
+    display: inline;
+  }
+}
+
 .read .foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-
-.read .go {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--ink);
-  transition: transform 0.4s var(--ease-out);
-}
-
-.read .go .icon {
-  width: 16px;
-  height: 16px;
-}
-
-.read:hover .go {
-  transform: rotate(45deg);
 }
 
 /* Post cards: a speech bubble that leads with the words. */
@@ -1377,27 +1390,6 @@ html:has(.filter-sheet[open]) {
   border-radius: 16px;
   object-fit: cover;
   background: var(--wash);
-}
-
-.post .go {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--wash);
-  color: var(--ink);
-  transition: transform 0.4s var(--ease-out);
-}
-
-.post .go .icon {
-  width: 16px;
-  height: 16px;
-}
-
-.post:hover .go {
-  transform: rotate(45deg);
 }
 
 .post .foot {

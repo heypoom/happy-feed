@@ -8,7 +8,7 @@ description: Develop the Happy Feed repo (feed.poom.dev). Use when adding source
 A personal, calm feed for one owner (Poom) who is escaping doomscrolling. Read first, every time:
 
 - `PRODUCT.md`: who it's for and the product principles. Every change serves "calm, curated, honest about freshness".
-- `DESIGN.md`: the visual system (tokens, eight tag hues, components). Update it whenever a component changes.
+- `DESIGN.md`: the visual system (tokens, ten tag hues, components). Update it whenever a component changes.
 - `README.md`: sources, collection schema, commands, deploy.
 
 ## Map
@@ -38,7 +38,7 @@ Playful or thoughtful writing about LLMs and AI is welcome. Only content purely 
 3. Done when `bun run refresh -- --local --author "<Name>"` lists the new author with a nonzero count and no failure. After the owner deploys, the next hourly run picks the source up; `bun run refresh -- --author "<Name>"` publishes it right away.
 4. Any collection edit (a new source, a tag, a rename, a mute word) needs a deploy to stick. The Worker bundles the collection at deploy time and every hourly run publishes from that copy, so a laptop refresh without a deploy is undone at the next :17. Pushing `main` deploys through the GitHub workflow.
 
-A ninth tag would reuse a hue: add a hue to the `:root`, dark-media and `[data-theme="dark"]` token blocks plus `HUES` in `src/shared/hues.ts`, with ink-on-wash and on-jewel contrast at 4.5:1 or more in both themes.
+An eleventh tag would reuse a hue: add a hue to the `:root`, dark-media and `[data-theme="dark"]` token blocks plus `HUES` in `src/shared/hues.ts`, with ink-on-wash and on-jewel contrast at 4.5:1 or more in both themes.
 
 ## Change the UI
 

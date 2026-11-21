@@ -1235,8 +1235,17 @@ function dateline(item: FeedItem): HTMLElement {
   return h("time", { dateTime: item.publishedAt, title: date.toLocaleString(), ...(as === "hand" ? { className: "dealt" } : {}) }, [text]);
 }
 
+// A card's tag pill shares its footer with the action buttons. In a narrow card a long tag would
+// wrap to two lines, so the stylesheet swaps in its short name there.
+const SHORT_TAGS: Record<string, string> = { "Computer Science": "CompSci" };
+
 function tagList(item: FeedItem): HTMLElement[] {
-  return item.tags.length > 0 ? [h("ul", { className: "tags" }, item.tags.map((tag) => h("li", {}, [tag])))] : [];
+  const pill = (tag: string) => {
+    const short = SHORT_TAGS[tag];
+    if (!short) return h("li", {}, [tag]);
+    return h("li", { title: tag }, [h("span", { className: "tag-full" }, [tag]), h("span", { className: "tag-short" }, [short])]);
+  };
+  return item.tags.length > 0 ? [h("ul", { className: "tags" }, item.tags.map(pill))] : [];
 }
 
 function renderCard(raw: FeedItem): HTMLElement {
@@ -1404,7 +1413,6 @@ function renderRead(item: FeedItem): HTMLElement {
     h("footer", { className: "foot" }, [
       h("div", {}, tagList(item)),
       actions(item),
-      h("span", { className: "go", ariaHidden: "true" }, [icon("i-arrow")]),
     ]),
   ]);
 }
@@ -1432,7 +1440,6 @@ function renderPost(item: FeedItem): HTMLElement {
     h("footer", { className: "foot" }, [
       h("div", {}, tagList(item)),
       actions(item),
-      h("span", { className: "go", ariaHidden: "true" }, [icon("i-arrow")]),
     ]),
   ]);
 }
