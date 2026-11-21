@@ -164,7 +164,9 @@ body {
   color: var(--text);
   font: 400 16px/1.5 var(--display);
   font-optical-sizing: auto;
-  overflow-x: hidden;
+  /* Clip, not hidden: hidden makes the body its own scroller whenever a dialog locks the page's
+     scroll, and the desktop rail then sticks to the body and jumps off screen. */
+  overflow-x: clip;
   transition: background-color 0.4s var(--ease-out), color 0.4s var(--ease-out);
 }
 
