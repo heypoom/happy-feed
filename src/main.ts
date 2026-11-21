@@ -1769,12 +1769,16 @@ function personHead(author: string, items: FeedItem[]): HTMLElement {
   const everyone = h("button", { type: "button", className: "button quiet" }, ["Show everyone"]);
   everyone.addEventListener("click", () => writeFilters({ ...readFilters(), people: new Set() }));
   const count = items.length;
+  // Two rows: who it is (with Show everyone on desktop; phones have the active strip's × right above),
+  // then how much of them to show.
   return h("header", { className: "person-head", dataset: { hue: first ? hueFor(first) : hueOf(author) } }, [
-    h("div", { className: "person-id" }, [
-      h("span", { className: "monogram", ariaHidden: "true" }, [initial(author)]),
-      h("h2", {}, [author, h("span", { className: "count", title: `${count} post${count === 1 ? "" : "s"}` }, [count.toLocaleString()])]),
+    h("div", { className: "person-row" }, [
+      h("div", { className: "person-id" }, [
+        h("span", { className: "monogram", ariaHidden: "true" }, [initial(author)]),
+        h("h2", {}, [author, h("span", { className: "count", title: `${count} post${count === 1 ? "" : "s"}` }, [count.toLocaleString()])]),
+      ]),
+      everyone,
     ]),
-    everyone,
     levelControl(author, "head"),
   ]);
 }

@@ -41,7 +41,9 @@ test("pausing someone from their card takes them out of the feed, and their own 
   await head.getByRole("radio", { name: "Normal" }).click();
   await expect(head.getByText(/Every new post/)).toBeVisible();
 
-  await head.getByRole("button", { name: "Show everyone" }).click();
+  // Phones undo the filter from the active strip; desktop has Show everyone in the head.
+  if (isMobile) await page.getByRole("button", { name: "Remove Ben Ortiz" }).click();
+  else await head.getByRole("button", { name: "Show everyone" }).click();
   await expect(cards(page)).toHaveCount(4);
 });
 

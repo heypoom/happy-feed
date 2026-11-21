@@ -1640,13 +1640,24 @@ html:has(.person-sheet[open]) {
   box-shadow: none;
 }
 
-/* Person head: the top of a feed filtered to one person, with the same control on a surface track. */
+/* Person head: the top of a feed filtered to one person. Two rows: who it is, then how much of them
+   to show, on a surface track. */
 .person-head {
+  display: grid;
+  gap: 14px;
+}
+
+.person-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 14px 12px;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Phones undo the filter from the active strip right above, so the head doesn't repeat it. */
+.person-row > .button {
+  display: none;
 }
 
 .person-id {
@@ -1661,6 +1672,7 @@ html:has(.person-sheet[open]) {
   align-items: baseline;
   flex-wrap: wrap;
   gap: 0 10px;
+  min-width: 0;
   margin: 0;
   font-size: 1.6rem;
   font-weight: 800;
@@ -1674,10 +1686,6 @@ html:has(.person-sheet[open]) {
   font-size: 1rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-
-.person-head .levels {
-  flex-basis: 100%;
 }
 
 .person-head .level-track {
@@ -2446,19 +2454,51 @@ html:has(.viewer[open]) {
     grid-column: 1 / -1;
   }
 
+  .person-row > .button {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+  }
+
+  /* The track keeps a fixed width with each icon beside its label; the note sits beside it when the
+     head has room, and under it in a narrow 1024px grid. */
+  .person-head {
+    container-type: inline-size;
+  }
+
   .person-head .levels {
-    flex-basis: auto;
-    width: min(440px, 100%);
+    display: grid;
+    grid-template-columns: minmax(0, 440px);
+    align-items: center;
+    gap: 8px 20px;
   }
 
   .person-head .level {
-    min-height: 44px;
     grid-auto-flow: column;
-    gap: 6px;
+    grid-auto-columns: max-content;
+    justify-content: center;
+    align-items: center;
+    gap: 7px;
+    min-height: 44px;
+  }
+
+  .person-head .level .icon {
+    width: 18px;
+    height: 18px;
   }
 
   .person-head .level-note {
-    margin-top: 8px;
+    margin: 0 4px;
+  }
+
+  @container (min-width: 780px) {
+    .person-head .levels {
+      grid-template-columns: 440px minmax(0, 40ch);
+    }
+
+    .person-head .level-note {
+      margin: 0;
+    }
   }
 
   .person-sheet {
