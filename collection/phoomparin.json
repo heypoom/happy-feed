@@ -108,6 +108,7 @@
     { "name": "Half as Interesting", "youtube": "https://www.youtube.com/@HalfAsInteresting", "tags": ["Play"] },
     { "name": "Baumgartner Restoration", "youtube": "https://www.youtube.com/@BaumgartnerRestoration", "tags": ["Play"] },
     { "name": "Jenny Nicholson", "youtube": "https://www.youtube.com/@JennyNicholson", "tags": ["Play"] },
-    { "name": "Mark Rober", "youtube": "https://www.youtube.com/@MarkRober", "tags": ["Play"] }
+    { "name": "Mark Rober", "youtube": "https://www.youtube.com/@MarkRober", "tags": ["Play"] },
+    { "name": "Folding Ideas", "youtube": "https://www.youtube.com/@FoldingIdeas", "tags": ["Play"] }
   ]
 }
