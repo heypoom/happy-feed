@@ -99,11 +99,6 @@ typography:
     fontFamily: "Bricolage Grotesque, ui-rounded, system-ui, sans-serif"
     fontSize: "0.78rem"
     fontWeight: 650
-  label-format:
-    fontFamily: "Bricolage Grotesque, ui-rounded, system-ui, sans-serif"
-    fontSize: "0.75rem"
-    fontWeight: 700
-    letterSpacing: "0.01em"
 rounded:
   pill: "999px"
   moment: "32px"
@@ -149,12 +144,6 @@ components:
     backgroundColor: "{colors.sky-wash}"
     textColor: "{colors.sky-ink}"
     rounded: "{rounded.pill}"
-  format-pill-sky:
-    backgroundColor: "{colors.sky-solid}"
-    textColor: "{colors.ink-on-solid}"
-    typography: "{typography.label-format}"
-    rounded: "{rounded.pill}"
-    padding: "3px 9px 3px 7px"
   tag-sky:
     textColor: "{colors.sky-ink}"
     typography: "{typography.label-tag}"
@@ -220,7 +209,7 @@ A quiet lilac or violet ground under ten bright tag hues, with one violet accent
 - **Electric Violet** (accent; night: night-accent): fills the active format tab and the one action button inside a moment. It also sets the focus ring. It is never used for content.
 
 ### Tag Hues
-Each hue is a triple. The **wash** is the tile and chip-selected background. The **solid** is used for dots, format pills, play buttons, monograms and the ring around a thumbnail. The **ink** is for text on the wash. The dark theme swaps all three for night versions (see the sidecar): the washes become dark tinted grounds, the solids get brighter and the inks get lighter.
+Each hue is a triple. The **wash** is the tile and chip-selected background. The **solid** is used for dots, play buttons, monograms and the ring around a thumbnail. The **ink** is for text on the wash. The dark theme swaps all three for night versions (see the sidecar): the washes become dark tinted grounds, the solids get brighter and the inks get lighter.
 - **Sunflower** (sun-wash / sun-solid / sun-ink)
 - **Tangerine** (tangerine-wash / tangerine-solid / tangerine-ink)
 - **Mint** (mint-wash / mint-solid / mint-ink)
@@ -243,7 +232,7 @@ Each hue is a triple. The **wash** is the tile and chip-selected background. The
 - **Midnight Ink** / **Night Text**: primary text.
 - **Dusk Muted** / **Night Muted**: idle tabs, bylines, timestamps and moment body copy.
 - **Lilac Line** / **Night Line**: chip borders, the rule between chip groups, and the scrollbar.
-- **Ink on Solid** (fixed in both themes): text and icons on any tag solid (format pill, play button, monogram). The solids are bright in both themes, so this dark ink does not flip.
+- **Ink on Solid** (fixed in both themes): text and icons on any tag solid (play button, monogram). The solids are bright in both themes, so this dark ink does not flip.
 
 ### Named Rules
 **The Hue Owns the Card Rule.** A card takes the hue of its first tag, falling back to a hash of the author. Tags are assigned hues in sorted order through the sequence sky, sun, berry, mint, grape, tangerine, teal, lime, orchid, coral, so neighbors contrast and a small tag set never lands on three warm hues in a row. Never pick a hue by hand for a single card.
@@ -265,7 +254,7 @@ Each hue is a triple. The **wash** is the tile and chip-selected background. The
 - **Headline, read** (Literata 650, 1.3rem, 1.28, pretty wrap): article titles.
 - **Body, reading** (Literata 400, 1rem, 1.55, max 62ch, clamped to 4 lines): summaries. Moment copy also uses Literata, at 34ch.
 - **Body** (Bricolage 400, 16px, 1.5): the base UI text.
-- **Labels** (Bricolage): tabs 650 at 0.95rem, chips 600 at 0.9rem, bylines 0.875rem with the author in 700, tags 650 at 0.78rem, format pills 700 at 0.75rem. Counts and timestamps use tabular numbers.
+- **Labels** (Bricolage): tabs 650 at 0.95rem, chips 600 at 0.9rem, bylines 0.875rem with the author in 700 and tags 650 at 0.78rem. Counts and timestamps use tabular numbers.
 
 ### Named Rules
 **The Two Voices Rule.** The title face signals the format. A watch title is set in Bricolage and a read title in Literata. Never set a read title in the display face, and never set UI chrome in Literata.
@@ -287,7 +276,7 @@ Depth is soft and ambient. One two-layer shadow, tinted cool violet in light and
 
 ## Shapes
 
-The form language is chunky and rounded. Every control is a full pill: tabs, chips, format pills, tags and buttons. Cards and thumbnails are 24px tiles. Moments are rounder still at 32px. Inline thumbnails on read cards use 16px corners, and monograms use 10px. The theme toggle and play button are circles. Borders are rare: only idle chips have one (1.5px, in the line color). Icons are drawn SVG symbols at 2px stroke with round caps and joins, 20px by default and 13 to 22px in context. Play and format glyphs are filled.
+The form language is chunky and rounded. Every control is a full pill: tabs, chips, tags and buttons. Cards and thumbnails are 24px tiles. Moments are rounder still at 32px. Inline thumbnails on read cards use 16px corners, and monograms use 10px. The theme toggle and play button are circles. Borders are rare: only idle chips have one (1.5px, in the line color). Icons are drawn SVG symbols at 2px stroke with round caps and joins, 20px by default and 13 to 22px in context. Play and format glyphs are filled.
 
 ## Components
 
@@ -322,7 +311,7 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 - **Post card:** for Bluesky and Mastodon. A surface-colored speech bubble (24px corners, 6px bottom-left) that leads with the post text in Bricolage 500 at 1.125rem, then an optional image, then tags. Words lead, because social posts have no title. Post images use the 16:9 frame of video thumbnails, and in the desktop grid the text stops at 5 lines, so no single post sets a whole row's height; the viewer shows both in full.
 - **People chips:** a second chip row with a round monogram in the person's hue. It filters by author and combines with tags and sources.
 - **Post viewer:** a native `<dialog>`. On phones it is a bottom sheet (28px top corners, grab bar, max 88dvh) that slides up 48px; on desktop it is a 540px right panel that slides in. Post text is Bricolage 500 at 1.2rem in `pre-wrap`; images sit in a 2-column grid with 20px outer corners; link cards and quotes are bordered or washed tiles. The footer holds the card actions and one accent "Open on …" link.
-- **Card actions:** a heart (favourite), a check (mark read or watched) and a person (tune this person) in each card's footer, as 36px circles on a 12% ink tint. A pressed heart fills berry, a pressed check fills mint. A tuned person's button keeps the same quiet tint, so a feed of one person isn't a row of filled circles; only its glyph changes, to their stop's (up, down, pause), labelled "Tune Chris (Less)". Video cards carry no format pill; the thumbnail already says "video".
+- **Card actions:** a heart (favourite), a check (mark read or watched) and a person (tune this person) in each card's footer, as 36px circles on a 12% ink tint. A pressed heart fills berry, a pressed check fills mint. A tuned person's button keeps the same quiet tint, so a feed of one person isn't a row of filled circles; only its glyph changes, to their stop's (up, down, pause), labelled "Tune Chris (Less)". Video cards carry no format glyph; the thumbnail already says "video".
 - **Level control:** how much of a person the feed shows, as one track of four stops (More, Normal, Less, Pause) with drawn up, dash, down and pause glyphs over their labels. They are native radios, so arrow keys move along the track. The track is a 4px-padded 22px-radius tile (ground in a sheet, surface plus shadow on the ground); the selected stop fills Electric Violet. Under it, one Literata line says what the stop does. A change applies at once: cards that no longer belong fold away with the leaving-a-list animation, the rest re-render, and the control stays open to change back.
 - **Person sheet:** opened by the person button. On phones a short bottom sheet in the sync sheet's shape; from 1024px a 360px popover (24px corners, a deeper soft shadow, a 1px line ring in dark, no dimming backdrop) placed under the button, or above it when the screen runs out, always 16px inside the screen. It holds a 44px monogram, the name in display weight, "6 new this week · Coding", the level control, and a quiet "Only show Chris" pill (absent when already filtered to them).
 - **Person head:** a feed filtered to exactly one person opens with one row: a 44px monogram, the name (1.6rem, 800) and post count on the left, and the level control on the right as a 440px surface track with each glyph beside its label. There is no note and no "Show everyone"; the active strip (phones) and the person's chip in the rail (desktop) undo the filter. Where the head is under 640px wide (phones, tablets, the 1024px grid) the track drops under the name, full width on phones and 440px from a 480px head; on phones its glyphs are 16px, and under 380px the labels go alone.
@@ -335,10 +324,10 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 - **People list:** on desktop, a "People · N" heading with a "Find a person" box above a two-column grid of 32px rows (22px monogram, name truncated with the full name in the tooltip). Typing filters as you go, Enter picks the first unselected match, Esc clears the search before it clears filters. A tag filter narrows the list and its count to the people posting under it. Selected people always stay listed and sort first, people seen more next; less and paused people keep their alphabetical place. A tuned person's monogram carries a 15px badge (12px in the rail) on its lower right: a text-colored disc with a surface ring and the stop's glyph. A paused row is muted, with its monogram at 30% hue on the line color. Phones show the same list in the filter sheet with 40px rows.
 - **Clear chip:** appears first in the rail's chip list only while a filter is on, as a filled accent pill with an × and the number of active filters. On phones it leads the active strip instead, sticky at its left edge and masked by the ground, and the sheet footer has "Clear all". Esc does the same (when the sheet is closed). It clears tags, sources, people and the format tab, but keeps the current list and No AI.
 - **Hide chip:** a neutral chip with an eye-off icon that leads the chip row. It is labeled "No <topic>" and fills with the text color when on, so it reads as a setting rather than a tag.
-- **Jewel variant:** with no image, the tile deepens to the jewel mix. The monogram and format pill invert to on-jewel, tags are outlined (1.5px, 45% on-jewel) rather than tinted. The byline time uses full on-jewel ink.
+- **Jewel variant:** with no image, the tile deepens to the jewel mix. The monogram inverts to on-jewel, tags are outlined (1.5px, 45% on-jewel) rather than tinted. The byline time uses full on-jewel ink.
 
 ### Byline, Format Pill and Tags
-- The byline shows the author in bold, then a format pill (the hue's solid with Ink on Solid text and a filled play or book glyph), then the relative time pushed to the end.
+- The byline shows the author in bold, then a format glyph, then the relative time pushed to the end. The glyph is a filled 14px book or chat icon in the byline's own color, with no fill behind it and its label ("Read", "Posts") only for screen readers and as a tooltip. It shows only in the All tab, where reads and posts mix; under the Read or Posts tab every card is the same kind, so it is left out.
 - Tags are pills with a 22% solid tint and hue-ink text.
 - **Dealt dates:** a card from today's hand replaces the relative time with an outlined pill in its hue ("From Aug 2022": 1.5px ring at 70% solid, hue-ink text, tag size and weight; on jewel tiles the ring and text are on-jewel). Outlined, so it never reads as a tag. Anytime cards show the month plainly ("Mar 2019"), since every card there is old.
 
@@ -368,7 +357,7 @@ The form language is chunky and rounded. Every control is a full pill: tabs, chi
 
 ### Do:
 - **Do** give every card and tag chip one of the six hues through the shared hue assignment, and use that hue's wash, solid and ink together.
-- **Do** keep watch and read visibly distinct in anatomy (a frameless picture versus a tinted tile) and in title voice (Bricolage versus Literata), not only in the format pill.
+- **Do** keep watch and read visibly distinct in anatomy (a frameless picture versus a tinted tile) and in title voice (Bricolage versus Literata), not only in the format glyph.
 - **Do** make every read card work with no image. The jewel tile is the image-less form.
 - **Do** ship every color change in both themes and through the header toggle. Check text on washes, solids and jewels at 4.5:1 in each theme.
 - **Do** use the shared out-expo ease (cubic-bezier(0.16, 1, 0.3, 1)), and let `prefers-reduced-motion` switch off movement; a plain cross-fade may stay where it shows what changed.

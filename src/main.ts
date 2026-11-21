@@ -1219,8 +1219,11 @@ function byline(item: FeedItem, lead: Node[] = []): HTMLElement {
   return h("header", { className: "byline" }, [
     ...lead,
     h("span", { className: "author" }, [item.author]),
-    // The thumbnail and play button already say "video", so watch cards skip the pill.
-    ...(format === "watch" ? [] : [h("span", { className: "format" }, [icon(FORMATS[format].icon, true), FORMATS[format].label])]),
+    // A quiet glyph tells reads from posts in a mixed feed. The thumbnail and play button already say
+    // "video", and under a format tab every card is the same kind, so both skip it.
+    ...(format === "watch" || readFilters().show
+      ? []
+      : [h("span", { className: "format", role: "img", ariaLabel: FORMATS[format].label, title: FORMATS[format].label }, [icon(FORMATS[format].icon, true)])]),
     dateline(item),
   ]);
 }

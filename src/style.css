@@ -1071,23 +1071,16 @@ html:has(.filter-sheet[open]) {
   font-variant-numeric: tabular-nums;
 }
 
+/* A muted glyph beside the author, not a pill: it only needs to be findable in the All feed. */
 .format {
   display: inline-flex;
-  align-items: center;
-  gap: 5px;
   flex: none;
-  padding: 3px 9px 3px 7px;
-  border-radius: 999px;
-  background: var(--solid);
-  color: var(--ink-on-solid);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  color: inherit;
 }
 
 .format .icon {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
 }
 
 .tags {
@@ -1247,8 +1240,7 @@ html:has(.filter-sheet[open]) {
   color: var(--on-jewel);
 }
 
-.read.jewel .monogram,
-.read.jewel .format {
+.read.jewel .monogram {
   background: var(--on-jewel);
   color: var(--jewel);
 }
