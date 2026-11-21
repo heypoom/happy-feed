@@ -27,8 +27,8 @@ type View = "feed" | Shelf;
 // New is this week, newest first, with today's hand of older posts woven in. Anytime is today's stack
 // from every year; `stack` counts the stacks dealt so far today.
 type Mode = "new" | "anytime";
-type Filters = { view: View; mode: Mode; stack: number; show: Format | ""; tags: Set<string>; kind: Set<string>; people: Set<string> };
-type ChipGroup = "tags" | "kind" | "people";
+type Filters = { view: View; mode: Mode; stack: number; show: Format | ""; tags: Set<string>; people: Set<string> };
+type ChipGroup = "tags" | "people";
 type Row =
   | { type: "card"; item: FeedItem }
   | { type: "caught-up"; hand: number }
@@ -47,16 +47,6 @@ const FORMATS: Record<Format, { label: string; icon: string }> = {
   post: { label: "Posts", icon: "i-chat" },
 };
 const FORMAT_NAMES = Object.keys(FORMATS) as Format[];
-const KINDS: Record<SourceKind, { label: string; icon: string }> = {
-  youtube: { label: "YouTube", icon: "i-tv" },
-  rss: { label: "Blogs", icon: "i-file" },
-  substack: { label: "Substack", icon: "i-mail" },
-  website: { label: "Web", icon: "i-globe" },
-  bluesky: { label: "Bluesky", icon: "i-at" },
-  mastodon: { label: "Mastodon", icon: "i-at" },
-  twitter: { label: "X", icon: "i-at" },
-  facebook: { label: "Facebook", icon: "i-at" },
-};
 
 const root = document.documentElement;
 const list = document.querySelector<HTMLElement>(".list")!;
@@ -79,7 +69,6 @@ const peopleCount = controls.querySelector<HTMLElement>(".people-head .count")!;
 const peopleFind = controls.querySelector<HTMLInputElement>(".people-find")!;
 const peopleNone = controls.querySelector<HTMLElement>(".people-none")!;
 // Sources repeat the Watch/Read/Posts tabs, so they stay folded unless opened or already filtering.
-let sourcesOpen = false;
 const toggle = document.querySelector<HTMLButtonElement>(".theme-toggle")!;
 const viewer = document.querySelector<HTMLDialogElement>(".viewer")!;
 const NETWORK: Partial<Record<SourceKind, { name: string; load: (item: FeedItem) => Promise<PostView> }>> = {
@@ -303,7 +292,7 @@ function syncTheme(): void {
 }
 
 // The manifest names the chunks, recent first, and today's deck. A plain feed URL paints from the
-// recent chunk and the deck. A link with a tag, source or person filter waits for every chunk, since
+// recent chunk and the deck. A link with a tag or person filter waits for every chunk, since
 // its counts and people need every post.
 async function start(): Promise<void> {
   try {
@@ -365,7 +354,7 @@ async function loadArchive(which: "next" | "all"): Promise<void> {
 
 const archiveLoaded = () => archive.every((entry) => entry.load === "done");
 
-// Tag, source and person filters count and list across every chunk, and dealing without today's deck
+// Tag and person filters count and list across every chunk, and dealing without today's deck
 // needs the whole archive.
 const needsArchive = (filters: Filters) => narrowing(filters) > 0 || (filters.view === "feed" && !todaysDeck());
 
@@ -723,7 +712,7 @@ function readFilters(): Filters {
     view: SHELVES.includes(view as Shelf) ? (view as Shelf) : "feed",
     mode,
     stack: mode === "anytime" && stack > 1 ? stack : 1,
-    show: show && show in FORMATS ? (show as Format) : "", tags: set("tags"), kind: set("kind"), people: set("people") };
+    show: show && show in FORMATS ? (show as Format) : "", tags: set("tags"), people: set("people") };
 }
 
 // A stack number belongs to one feed and one set of filters, so changing either starts again at stack 1.
@@ -734,7 +723,7 @@ function writeFilters(next: Filters): void {
     current.view === next.view &&
     current.mode === next.mode &&
     current.show === next.show &&
-    (["tags", "kind", "people"] as const).every((key) => sameSet(current[key], next[key]));
+    (["tags", "people"] as const).every((key) => sameSet(current[key], next[key]));
   const filters = same ? next : { ...next, stack: 1 };
   const params = new URLSearchParams();
   if (filters.view !== "feed") params.set("view", filters.view);
@@ -742,7 +731,6 @@ function writeFilters(next: Filters): void {
   if (filters.mode === "anytime" && filters.stack > 1) params.set("stack", String(filters.stack));
   if (filters.show) params.set("show", filters.show);
   if (filters.tags.size > 0) params.set("tags", [...filters.tags].join(","));
-  if (filters.kind.size > 0) params.set("kind", [...filters.kind].join(","));
   if (filters.people.size > 0) params.set("people", [...filters.people].join(","));
   const query = params.toString().replaceAll("%2C", ",");
   history.pushState(null, "", query ? `?${query}` : location.pathname);
@@ -762,21 +750,20 @@ function activeFilterCount(filters: Filters): number {
   return narrowing(filters) + (filters.show ? 1 : 0);
 }
 
-// Tag, source and person filters; the format tab is not one of them.
+// Tag and person filters; the format tab is not one of them.
 function narrowing(filters: Filters): number {
-  return filters.tags.size + filters.kind.size + filters.people.size;
+  return filters.tags.size + filters.people.size;
 }
 
 // Clears what narrows the list; the current list (feed, favourites, archive) and No AI stay as they are.
 function clearFilters(filters: Filters): void {
-  writeFilters({ view: filters.view, mode: filters.mode, stack: 1, show: "", tags: new Set(), kind: new Set(), people: new Set() });
+  writeFilters({ view: filters.view, mode: filters.mode, stack: 1, show: "", tags: new Set(), people: new Set() });
 }
 
 function matchesChips(item: FeedItem, filters: Filters): boolean {
   const tagOk = filters.tags.size === 0 || item.tags.some((tag) => filters.tags.has(tag));
-  const kindOk = filters.kind.size === 0 || filters.kind.has(item.kind);
   const personOk = filters.people.size === 0 || filters.people.has(item.author);
-  return tagOk && kindOk && personOk;
+  return tagOk && personOk;
 }
 
 const matchesShow = (item: FeedItem, filters: Filters) => !filters.show || FORMAT_OF[item.kind] === filters.show;
@@ -888,7 +875,7 @@ function render(): void {
   appendPage();
 }
 
-// Today's deck deals the hand in every view, and the stack unless a tag, source or person filter
+// Today's deck deals the hand in every view, and the stack unless a tag or person filter
 // narrows the pool past the deck's depth (that filter loads the archive anyway). Otherwise the
 // archive deals once every chunk is in; until then New has no hand and Anytime waits.
 function rowsFor(filters: Filters, chipMatches: FeedItem[]): Row[] {
@@ -1074,12 +1061,11 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
     }),
     h("span", { className: "chip-rule", ariaHidden: "true" }),
     ...feed.tags.map((tag) => chip("tags", tag, h("span", { className: "dot" }), tag, hues.get(tag))),
-    ...(feed.kinds.length > 1 ? sourceChips(filters, chip) : []),
   );
 
   const authors = new Map<string, Hue>();
   // The deck has every source with an older post, so the list is whole before the archive loads.
-  // A tag or source filter narrows the list to the people posting under it; selected people stay so
+  // A tag filter narrows the list to the people posting under it; selected people stay so
   // they can be unselected.
   const scope = { ...filters, people: new Set<string>() };
   for (const item of loadedItems()) {
@@ -1138,10 +1124,6 @@ function renderActiveStrip(filters: Filters, active: number): void {
     tokens.push(el);
   };
   for (const tag of filters.tags) token("tags", tag, tag, h("span", { className: "dot" }), hues.get(tag));
-  for (const kind of filters.kind) {
-    const known = KINDS[kind as SourceKind];
-    token("kind", kind, known?.label ?? kind, icon(known?.icon ?? "i-globe"));
-  }
   for (const person of filters.people) {
     const item = loadedItems().find((candidate) => candidate.author === person);
     token("people", person, person, h("span", { className: "monogram", ariaHidden: "true" }, [initial(person)]), item ? hueFor(item) : hueOf(person));
@@ -1219,29 +1201,6 @@ function tuckOnScroll(): void {
     },
     { passive: true },
   );
-}
-
-type ChipFactory = (group: ChipGroup, value: string, lead: Node, label: string, hue?: Hue) => HTMLButtonElement;
-
-function sourceChips(filters: Filters, chip: ChipFactory): Node[] {
-  const open = sourcesOpen || filters.kind.size > 0;
-  const toggle = h("button", { type: "button", className: "chip more-chip" }, [
-    "Sources",
-    ...(filters.kind.size > 0 ? [h("span", { className: "count" }, [String(filters.kind.size)])] : []),
-    icon("i-chevron"),
-  ]);
-  toggle.setAttribute("aria-expanded", String(open));
-  toggle.disabled = open && filters.kind.size > 0;
-  toggle.title = toggle.disabled ? "Clear the source filters to fold these away" : open ? "Hide sources" : "Show sources";
-  toggle.addEventListener("click", () => {
-    sourcesOpen = !open;
-    refreshControls();
-  });
-  return [
-    h("span", { className: "chip-rule", ariaHidden: "true" }),
-    toggle,
-    ...(open ? feed.kinds.map((kind) => chip("kind", kind, icon(KINDS[kind].icon), KINDS[kind].label)) : []),
-  ];
 }
 
 function applyPeopleFind(): void {

@@ -677,7 +677,7 @@
       },
       "label-chip": {
         "displayName": "Chip",
-        "purpose": "Tag and source chips."
+        "purpose": "Tag chips."
       },
       "label-byline": {
         "displayName": "Byline",
