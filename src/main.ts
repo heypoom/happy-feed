@@ -1076,12 +1076,12 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
     if (matchesChips(item, scope) || filters.people.has(item.author)) authors.set(item.author, hueFor(item));
   }
   // Selected people lead the list, so what is filtering the feed is never buried in the alphabet, and
-  // anyone tuned comes next, so they are easy to find and change back.
-  const tuned = (author: string) => Number(levelOf(library, author) !== "normal");
+  // people seen more come next. Less and paused people stay in the alphabet, marked by their badge.
+  const more = (author: string) => Number(levelOf(library, author) === "more");
   const ordered = [...authors].sort(
     ([a], [b]) =>
       Number(filters.people.has(b)) - Number(filters.people.has(a)) ||
-      tuned(b) - tuned(a) ||
+      more(b) - more(a) ||
       a.localeCompare(b, undefined, { sensitivity: "base" }),
   );
   peopleCount.textContent = String(authors.size);
