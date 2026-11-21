@@ -1482,12 +1482,6 @@ html:has(.filter-sheet[open]) {
   color: var(--ink-on-solid);
 }
 
-/* A tuned person's button fills with the card's ink, so it reads as a setting that is on. */
-.act-tune:not([data-level="normal"]) {
-  background: var(--ink);
-  color: var(--wash-base);
-}
-
 /* People: how much of someone the feed shows. One track of four stops (native radios), with a line
    under it saying what the stop does. */
 .levels {
