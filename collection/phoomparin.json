@@ -109,6 +109,11 @@
     { "name": "Baumgartner Restoration", "youtube": "https://www.youtube.com/@BaumgartnerRestoration", "tags": ["Play"] },
     { "name": "Jenny Nicholson", "youtube": "https://www.youtube.com/@JennyNicholson", "tags": ["Play"] },
     { "name": "Mark Rober", "youtube": "https://www.youtube.com/@MarkRober", "tags": ["STEM"] },
-    { "name": "Folding Ideas", "youtube": "https://www.youtube.com/@FoldingIdeas", "tags": ["Play"] }
+    { "name": "Folding Ideas", "youtube": "https://www.youtube.com/@FoldingIdeas", "tags": ["Play"] },
+    { "name": "Hainbach", "youtube": "https://www.youtube.com/@Hainbach", "tags": ["Play"] },
+    { "name": "Look Mum No Computer", "youtube": "https://www.youtube.com/@LOOKMUMNOCOMPUTER", "tags": ["Play"] },
+    { "name": "Journey to the Microcosmos", "youtube": "https://www.youtube.com/@journeytomicro", "tags": ["STEM"] },
+    { "name": "Clickspring", "youtube": "https://www.youtube.com/@Clickspring", "tags": ["STEM"] },
+    { "name": "Craig Mod", "rss": "https://craigmod.com/index.xml", "tags": ["Play"] }
   ]
 }
