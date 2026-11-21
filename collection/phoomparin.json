@@ -127,6 +127,8 @@
     { "name": "xkcd", "rss": "https://xkcd.com/atom.xml", "tags": ["Play"] },
     { "name": "What If?", "rss": "https://what-if.xkcd.com/feed.atom", "tags": ["Play"] },
     { "name": "kottke.org", "rss": "https://feeds.kottke.org/main", "tags": ["Play"] },
-    { "name": "Jay Foreman", "youtube": "https://www.youtube.com/@JayAndMark", "tags": ["Culture"] }
+    { "name": "Jay Foreman", "youtube": "https://www.youtube.com/@JayAndMark", "tags": ["Culture"] },
+    { "name": "Posy", "youtube": "https://www.youtube.com/@PosyMusic", "tags": ["Design"] },
+    { "name": "Boundary Break", "youtube": "https://www.youtube.com/@BoundaryBreak", "tags": ["Design"] }
   ]
 }
