@@ -98,6 +98,7 @@
     { "name": "The Public Domain Review", "rss": "https://publicdomainreview.org/rss.xml", "tags": ["Design"] },
     { "name": "A Collection of Unmitigated Pedantry", "description": "Bret Devereaux", "rss": "https://acoup.blog/feed/", "tags": ["Play"] },
     { "name": "jan Misali", "youtube": "https://www.youtube.com/@HBMmaster", "tags": ["Play"] },
-    { "name": "Jacob Geller", "youtube": "https://www.youtube.com/@JacobGeller", "tags": ["Design"] }
+    { "name": "Jacob Geller", "youtube": "https://www.youtube.com/@JacobGeller", "tags": ["Design"] },
+    { "name": "Good Work", "youtube": "https://www.youtube.com/@GoodWorkMB", "tags": ["Play"] }
   ]
 }
