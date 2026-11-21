@@ -1693,6 +1693,33 @@ html:has(.person-sheet[open]) {
   box-shadow: var(--shadow);
 }
 
+/* The head's track is one compact row: each glyph beside its label, 44px tall. */
+.person-head .level {
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+}
+
+.person-head .level .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.person-head .level-note {
+  margin-top: 8px;
+  font-size: 0.875rem;
+}
+
+/* Under 380px four glyphs and labels only just fit one row; the labels alone carry it. */
+@media (max-width: 379px) {
+  .person-head .level .icon {
+    display: none;
+  }
+}
+
 /* In the People list a tuned person carries their stop on the corner of their monogram. */
 .people .monogram {
   position: relative;
@@ -2474,12 +2501,7 @@ html:has(.viewer[open]) {
   }
 
   .person-head .level {
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-    justify-content: center;
-    align-items: center;
     gap: 7px;
-    min-height: 44px;
   }
 
   .person-head .level .icon {
@@ -2489,6 +2511,7 @@ html:has(.viewer[open]) {
 
   .person-head .level-note {
     margin: 0 4px;
+    font-size: 0.95rem;
   }
 
   @container (min-width: 780px) {

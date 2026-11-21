@@ -1084,8 +1084,7 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
       tuned(b) - tuned(a) ||
       a.localeCompare(b, undefined, { sensitivity: "base" }),
   );
-  const paused = [...authors.keys()].filter((author) => levelOf(library, author) === "pause").length;
-  peopleCount.textContent = paused > 0 ? `${authors.size} · ${paused} paused` : String(authors.size);
+  peopleCount.textContent = String(authors.size);
   people.replaceChildren(
     ...ordered.map(([author, hue]) => {
       const level = levelOf(library, author);

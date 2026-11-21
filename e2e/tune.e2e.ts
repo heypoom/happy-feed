@@ -31,7 +31,6 @@ test("pausing someone from their card takes them out of the feed, and their own 
 
   // The People list marks them, and asking for them by name shows their posts with a way back.
   await openFilters(page, isMobile);
-  await expect(page.locator(".people-head .count")).toHaveText("4 · 1 paused");
   await page.getByRole("button", { name: "Ben Ortiz, on pause" }).click();
   await expect(page).toHaveURL(/\?people=Ben(\+|%20)Ortiz$/);
   if (isMobile) await page.getByRole("button", { name: "Close filters" }).click();
