@@ -752,6 +752,12 @@ function writeFilters(next: Filters): void {
   });
 }
 
+// 25698 reads as "26k" and 2512 as "2.5k", so the format tabs stay narrow; the full count is in the title.
+const compactFormat = new Intl.NumberFormat("en", { notation: "compact", maximumSignificantDigits: 2 });
+function compactCount(n: number): string {
+  return n < 1000 ? String(n) : compactFormat.format(n).toLowerCase();
+}
+
 function activeFilterCount(filters: Filters): number {
   return narrowing(filters) + (filters.show ? 1 : 0);
 }
@@ -999,10 +1005,10 @@ function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
     (["", ...formats] as const).map((format) => {
       const { label, icon: id } = format ? FORMATS[format] : { label: "All", icon: "i-all" };
       const n = count(format);
-      const tab = h("button", { type: "button", className: "tab", title: `${label} (${n})`, ariaLabel: `${label}, ${n} post${n === 1 ? "" : "s"}` }, [
+      const tab = h("button", { type: "button", className: "tab", title: `${label} (${n.toLocaleString()})`, ariaLabel: `${label}, ${n.toLocaleString()} post${n === 1 ? "" : "s"}` }, [
         icon(id),
         h("span", { className: "tab-label" }, [label]),
-        h("span", { className: "count" }, [String(n)]),
+        h("span", { className: "count" }, [compactCount(n)]),
       ]);
       tab.dataset.key = `${where}:show:${format}`;
       tab.setAttribute("aria-pressed", String(filters.show === format));
