@@ -1386,14 +1386,22 @@ function collapseOut(card: HTMLElement): void {
 
 function renderWatch(item: FeedItem): HTMLElement {
   const playable = item.videoId !== undefined;
-  // DeArrow frame first, then YouTube's sharp thumbnail, then whatever the feed carried.
-  const sources = [item.thumbnail, playable ? `https://i.ytimg.com/vi/${item.videoId}/hq720.jpg` : undefined, item.image].filter(
+  // DeArrow frame first, then YouTube's sharp thumbnail, then whatever the feed carried, then the
+  // 480x360 thumbnail every video has.
+  const ytimg = (size: string) => (playable ? `https://i.ytimg.com/vi/${item.videoId}/${size}.jpg` : undefined);
+  const sources = [...new Set([item.thumbnail, ytimg("hq720"), item.image, ytimg("hqdefault")])].filter(
     (src): src is string => !!src,
   );
   const img = h("img", { src: sources.shift()!, alt: "", loading: "lazy", decoding: "async", referrerPolicy: "no-referrer" });
-  img.addEventListener("error", () => {
+  const fallBack = () => {
     const next = sources.shift();
     if (next) img.src = next;
+  };
+  img.addEventListener("error", fallBack);
+  // A missing YouTube size is a 404 that still carries a 120x90 placeholder, so the browser shows it
+  // without an error event. Older videos have no hq720, and DeArrow redirects there when it has no frame.
+  img.addEventListener("load", () => {
+    if (img.naturalWidth === 120 && img.naturalHeight === 90) fallBack();
   });
   const picture = [
     img,
