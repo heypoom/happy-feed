@@ -6,7 +6,7 @@
   },
   "entries": [
     { "name": "LaurieWired", "bluesky": "https://bsky.app/profile/lauriewired.bsky.social", "tags": ["Computer Science"] },
-    { "name": "Mitchell Hashimoto", "mastodon": "https://hachyderm.io/@mitchellh", "tags": ["Computer Science"] },
+    { "name": "Mitchell Hashimoto", "mastodon": "https://hachyderm.io/@mitchellh", "rss": "https://mitchellh.com/feed.xml", "tags": ["Computer Science"] },
     { "name": "Hayyoth", "youtube": "https://www.youtube.com/@hayyoth-org", "tags": ["Coding"] },
     { "name": "Patt Vira", "youtube": "https://www.youtube.com/@pattvira", "tags": ["Creative Coding"] },
     { "name": "Bisqwit", "youtube": "https://www.youtube.com/@Bisqwit", "tags": ["Coding"] },
