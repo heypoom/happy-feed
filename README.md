@@ -53,7 +53,7 @@ Every `collection/*.json` file is loaded and merged. A source listed in several 
 }
 ```
 
-An entry needs at least one source. Every post a source publishes is kept, with no age cutoff.
+An entry needs at least one source. Any key can take a list of URLs instead of one, such as a Medium profile and a publication the person writes for. Every post a source publishes is kept, with no age cutoff.
 
 | Key | Reads | Depth |
 | --- | --- | --- |

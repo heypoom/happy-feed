@@ -48,7 +48,9 @@ export function mergeSources(collections: Collection[]): Source[] {
 
 // An entry's archive page lists more of the same blog, so its posts join that blog's kind.
 function sourcesOf(entry: Collection["entries"][number]): { kind: SourceKind; url: string; provider: keyof ProviderRegistry }[] {
-  const sources = (Object.entries(entry.sources) as [SourceKind, string][]).map(([kind, url]) => ({ kind, url, provider: kind }));
+  const sources = (Object.entries(entry.sources) as [SourceKind, string | string[]][]).flatMap(([kind, urls]) =>
+    [urls].flat().map((url) => ({ kind, url, provider: kind })),
+  );
   if (!entry.archive) return sources;
   const kind = (Object.keys(entry.sources) as SourceKind[]).find((k) => k === "rss" || k === "website" || k === "substack") ?? "website";
   return [...sources, { kind, url: entry.archive, provider: "archive" as const }];

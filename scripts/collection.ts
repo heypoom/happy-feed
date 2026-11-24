@@ -4,7 +4,8 @@ export type Entry = {
   name: string;
   description?: string;
   tags: string[];
-  sources: Partial<Record<SourceKind, string>>;
+  // A kind can list several feeds, like a Medium profile and a publication the person writes for.
+  sources: Partial<Record<SourceKind, string | string[]>>;
   archive?: string;
 };
 
@@ -39,7 +40,13 @@ export function parseCollection(raw: unknown, file: string): Collection {
       const label = `${at} (${name})`;
       const sources: Entry["sources"] = {};
       for (const kind of SOURCE_KINDS) {
-        if (entry[kind] !== undefined) sources[kind] = url(entry[kind], `${label}.${kind}`, fail);
+        const value = entry[kind];
+        if (value === undefined) continue;
+        sources[kind] = Array.isArray(value)
+          ? value.length > 0
+            ? value.map((v, j) => url(v, `${label}.${kind}[${j}]`, fail))
+            : fail(`${label}.${kind}`, "must list at least one URL")
+          : url(value, `${label}.${kind}`, fail);
       }
       if (Object.keys(sources).length === 0) fail(label, `needs at least one of ${SOURCE_KINDS.join(", ")}`);
       return {
