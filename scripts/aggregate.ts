@@ -14,17 +14,34 @@ export function restamp(items: FeedItem[], { author, tags, mute }: Listing): Fee
   return items.filter((item) => !isMuted(item, mute)).map((item) => ({ ...item, author, tags }));
 }
 
-// The same post can arrive twice (RSS and an archive page, http and https, with or without www or .html).
-// Keep one per author and URL, preferring the copy with more to show.
+// The same post can arrive twice (RSS and an archive page, http and https, with or without www or .html,
+// or a profile feed and a publication feed tagging the link differently). Keep one per author and URL,
+// preferring the copy with more to show. Two copies with the same id are the same post whatever their URLs.
 export function dedupe(items: FeedItem[]): FeedItem[] {
   const kept = new Map<string, FeedItem>();
+  const keyOfId = new Map<string, string>();
   for (const item of items) {
-    const key = `${item.author}|${item.kind}|${sameUrl(item.url)}`;
+    const key = keyOfId.get(item.id) ?? `${item.author}|${item.kind}|${postUrl(item.url)}`;
     const existing = kept.get(key);
     if (!existing) kept.set(key, item);
     else kept.set(key, { ...item, ...existing, summary: existing.summary ?? item.summary, image: existing.image ?? item.image });
+    keyOfId.set(item.id, key);
   }
   return [...kept.values()];
+}
+
+// A post's URL without the tracking a feed adds: utm_* everywhere, and Medium's `source=rss…`, which
+// differs between a writer's profile feed and a publication's feed for the same post.
+function postUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    for (const [name, value] of [...parsed.searchParams]) {
+      if (name.startsWith("utm_") || (name === "source" && value.startsWith("rss"))) parsed.searchParams.delete(name);
+    }
+    return sameUrl(parsed.toString());
+  } catch {
+    return url;
+  }
 }
 
 export function sameUrl(url: string): string {
