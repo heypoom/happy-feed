@@ -2884,3 +2884,205 @@ html.pulling:not(.pull-settling) .controls {
     opacity: 0;
   }
 }
+
+/* Search. On phones the search button opens the box in the tabs' place; from 1024px it heads the rail. */
+.search {
+  display: none;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 6px 0 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: var(--shadow);
+  transition: background-color 0.4s var(--ease-out), box-shadow 0.25s var(--ease-out);
+}
+
+.search:focus-within {
+  box-shadow: var(--shadow), 0 0 0 3px var(--focus);
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  caret-color: var(--accent);
+  font: inherit;
+  /* 16px or more, so iOS doesn't zoom the page when the box takes focus. */
+  font-size: 1rem;
+  appearance: none;
+}
+
+.search-input:focus-visible {
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.search-input::-webkit-search-cancel-button,
+.search-input::-webkit-search-decoration {
+  appearance: none;
+}
+
+.search-clear {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}
+
+.search-clear[hidden] {
+  display: none;
+}
+
+.search-clear .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.search-key {
+  display: none;
+}
+
+.search-button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  transition: background-color 0.25s var(--ease-out);
+}
+
+.controls.search-open .search {
+  display: flex;
+}
+
+.controls.search-open .tabs,
+.controls.search-open .search-button {
+  display: none;
+}
+
+/* The words a search found, in the same sunny highlight as selected text. */
+mark {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: var(--sunny);
+  color: var(--sunny-ink);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* A search shows posts the feed would hide; a quiet pill says why ("Read", "Paused"). */
+.byline .state {
+  flex: none;
+  margin-left: auto;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.byline .state + .state,
+.byline .state ~ time {
+  margin-left: 0;
+}
+
+.read.jewel .byline .state {
+  background: color-mix(in srgb, var(--on-jewel) 16%, transparent);
+  color: var(--on-jewel);
+}
+
+.search-head {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.search-head h2 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.search-head .count {
+  font-variant-numeric: tabular-nums;
+}
+
+.search-scope,
+.search-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (min-width: 1024px) {
+  .search {
+    display: flex;
+    height: 42px;
+    margin-bottom: 10px;
+    padding-left: 14px;
+  }
+
+  .search-clear {
+    width: 30px;
+    height: 30px;
+  }
+
+  .search-key {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin-right: 4px;
+    border: 1.5px solid var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+    font: 600 0.75rem/1 var(--display);
+  }
+
+  .search:focus-within .search-key,
+  .search:has(.search-input:not(:placeholder-shown)) .search-key {
+    display: none;
+  }
+
+  .search-button {
+    display: none;
+  }
+
+  .controls.search-open .tabs {
+    display: flex;
+  }
+
+  .list > .search-head {
+    grid-column: 1 / -1;
+  }
+}

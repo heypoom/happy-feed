@@ -18,6 +18,7 @@ import {
 } from "./shared/library";
 import { dayKey, dealHand, dealStack, isFresh, orderFeed } from "./shared/order";
 import { blueskyApiUrl, fromBluesky, fromMastodon, mastodonApiUrl, type PostView } from "./shared/post-view";
+import { matchesSearch, matchRanges, searchTerms } from "./shared/search";
 import { normalizePassphrase, SYNC_PATH, syncKey } from "./shared/sync";
 import { LEVELS, thinLess, WEIGHT, type Level } from "./shared/tuning";
 import { FORMAT_OF, type Chunk, type FeedItem, type Format, type Manifest, type SourceKind } from "./shared/types";
@@ -27,14 +28,17 @@ type View = "feed" | Shelf;
 // New is this week, newest first, with today's hand of older posts woven in. Anytime is today's stack
 // from every year; `stack` counts the stacks dealt so far today.
 type Mode = "new" | "anytime";
-type Filters = { view: View; mode: Mode; stack: number; show: Format | ""; tags: Set<string>; people: Set<string> };
+// `q` is the search. It sits on top of the other filters and, in the feed, lifts New's week and the
+// day's dealing, so it looks through every post of every year.
+type Filters = { view: View; mode: Mode; stack: number; show: Format | ""; tags: Set<string>; people: Set<string>; q: string };
 type ChipGroup = "tags" | "people";
 type Row =
   | { type: "card"; item: FeedItem }
   | { type: "caught-up"; hand: number }
   | { type: "stack-end"; stack: number; count: number; more: boolean }
   // Anytime without a deck to deal from waits here for the archive.
-  | { type: "dealing" };
+  | { type: "dealing" }
+  | { type: "search-end"; count: number };
 // How a dealt card shows its date: hand cards say "From Mar 2021", stack cards just "Mar 2021".
 type DealtAs = "hand" | "stack";
 type SyncSetup = { passphrase: string; key: string };
@@ -55,6 +59,10 @@ const controls = document.querySelector<HTMLElement>(".controls")!;
 const tabs = controls.querySelector<HTMLElement>(".tabs")!;
 const sheetTabs = controls.querySelector<HTMLElement>(".sheet-tabs")!;
 const filtersButton = controls.querySelector<HTMLButtonElement>(".filters-button")!;
+const searchForm = controls.querySelector<HTMLFormElement>(".search")!;
+const searchInput = searchForm.querySelector<HTMLInputElement>(".search-input")!;
+const searchClear = searchForm.querySelector<HTMLButtonElement>(".search-clear")!;
+const searchButton = controls.querySelector<HTMLButtonElement>(".search-button")!;
 const activeStrip = controls.querySelector<HTMLElement>(".active-strip")!;
 const sheet = controls.querySelector<HTMLDialogElement>(".filter-sheet")!;
 const sheetClear = sheet.querySelector<HTMLButtonElement>(".sheet-clear")!;
@@ -142,7 +150,7 @@ const observer = new IntersectionObserver(
       return;
     }
     const filters = readFilters();
-    if (filters.view === "feed" && filters.mode === "new") void loadArchive("next");
+    if (filters.view === "feed" && filters.mode === "new" && !filters.q) void loadArchive("next");
   },
   { rootMargin: "800px 0px" },
 );
@@ -226,8 +234,15 @@ viewer.addEventListener("pointerup", (event) => {
   pressOnBackdrop = false;
 });
 window.addEventListener("keydown", (event: KeyboardEvent) => {
+  const dialogOpen = viewer.open || sheet.open || syncSheet.open || personSheet.open;
+  // "/" jumps to the search, unless you are already typing somewhere.
+  if (event.key === "/" && !dialogOpen && feed && !(event.target as Element | null)?.closest("input, textarea, [contenteditable]")) {
+    event.preventDefault();
+    openSearch();
+    return;
+  }
   // With the sheet open, Esc belongs to the sheet (it closes it) rather than clearing filters.
-  if (event.key !== "Escape" || viewer.open || sheet.open || syncSheet.open || personSheet.open || !feed) return;
+  if (event.key !== "Escape" || dialogOpen || !feed) return;
   const filters = readFilters();
   if (activeFilterCount(filters) > 0) clearFilters(filters);
 });
@@ -247,6 +262,42 @@ peopleFind.addEventListener("keydown", (event) => {
 });
 
 filtersButton.addEventListener("click", openSheet);
+searchButton.addEventListener("click", openSearch);
+// The feed follows the box as you type, a beat behind, so each keystroke doesn't redraw the list.
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+searchInput.addEventListener("input", () => {
+  searchClear.hidden = !searchInput.value;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => setQuery(searchInput.value), 180);
+});
+searchInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  // Esc clears the search first, then leaves the box; it never falls through to clearing filters.
+  event.stopPropagation();
+  event.preventDefault();
+  if (searchInput.value) clearSearch();
+  else searchInput.blur();
+});
+// Enter runs the search at once and puts the phone keyboard away, so the results have the screen.
+searchForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  clearTimeout(searchTimer);
+  setQuery(searchInput.value);
+  searchInput.blur();
+});
+searchClear.addEventListener("click", () => {
+  clearSearch();
+  // On a phone an empty box gives the bar back to the tabs; on desktop the box stays for the next search.
+  if (railLayout.matches) searchInput.focus();
+  else {
+    searchInput.blur();
+    searchButton.focus({ preventScroll: true });
+  }
+});
+searchForm.addEventListener("focusout", (event) => {
+  if (searchForm.contains(event.relatedTarget as Node | null)) return;
+  renderSearchBox(readFilters());
+});
 sheet.querySelector(".sheet-close")!.addEventListener("click", () => sheet.close());
 sheetDone.addEventListener("click", () => sheet.close());
 sheetClear.addEventListener("click", () => clearFilters(readFilters()));
@@ -314,7 +365,7 @@ function syncTheme(): void {
 async function start(): Promise<void> {
   try {
     const manifest = await getJson<Manifest>("feed/manifest.json", { cache: "no-cache" });
-    await loadFeed(manifest, () => narrowing(readFilters()) > 0);
+    await loadFeed(manifest, () => narrowing(readFilters()) > 0 || readFilters().q !== "");
   } catch {
     list.replaceChildren(
       moment({
@@ -329,7 +380,12 @@ async function start(): Promise<void> {
   window.addEventListener("popstate", () => {
     if (skipNextPop) skipNextPop = false;
     else if (viewer.open) viewer.close();
-    else morph(render);
+    else {
+      // Back past a search empties the box, even while it has focus.
+      clearTimeout(searchTimer);
+      searchInput.value = readFilters().q;
+      morph(render);
+    }
   });
   render();
   observer.observe(sentinel);
@@ -373,7 +429,7 @@ const archiveLoaded = () => archive.every((entry) => entry.load === "done");
 
 // Tag and person filters count and list across every chunk, and dealing without today's deck
 // needs the whole archive.
-const needsArchive = (filters: Filters) => narrowing(filters) > 0 || (filters.view === "feed" && !todaysDeck());
+const needsArchive = (filters: Filters) => narrowing(filters) > 0 || (filters.view === "feed" && (!todaysDeck() || filters.q !== ""));
 
 const todaysDeck = () => (deck?.day === dayKey(new Date()) ? deck.items : undefined);
 
@@ -400,7 +456,7 @@ async function pullRefresh(): Promise<string> {
     return "Couldn't check just now";
   }
   const filters = readFilters();
-  if (filters.view === "feed" && filters.mode === "anytime") {
+  if (filters.view === "feed" && filters.mode === "anytime" && !filters.q) {
     const end = rowsFor(filters, viewItems(filters)).find((row) => row.type === "stack-end");
     if (end?.type === "stack-end" && end.more) {
       writeFilters({ ...filters, stack: filters.stack + 1 });
@@ -436,7 +492,7 @@ function pullToRefresh(): void {
   });
   const copy = () => {
     const filters = readFilters();
-    return PULL_COPY[filters.view === "feed" ? filters.mode : "new"];
+    return PULL_COPY[filters.view === "feed" && !filters.q ? filters.mode : "new"];
   };
   addEventListener(
     "touchstart",
@@ -504,6 +560,7 @@ function addArchive(items: FeedItem[]): void {
   if (shown.length === 0 || (!samePrefix && scrollY < innerHeight)) return morph(render);
 
   renderControls(filters, chipMatches);
+  fillSearchHead(filters, next);
   const onScreen = new Set(shown);
   rows = [...rows.filter((row) => onScreen.has(rowId(row))), ...next.filter((row) => !onScreen.has(rowId(row)))];
   rendered = shown.length;
@@ -638,6 +695,8 @@ function settleCards(): void {
 // A card stays when the feed would still show it. Cards already dealt today stay dealt, so a person
 // seen less keeps the cards their turn gave them; only a pause takes those away.
 function stillShown(filters: Filters): (item: FeedItem) => boolean {
+  // A search shows read posts and paused people, so only No AI takes a card out of it.
+  if (filters.q) return (item) => !isExcluded(item, hidden);
   const thinned = filters.mode === "new" ? new Set(viewItems(filters).map((item) => item.id)) : undefined;
   return (item) => inFeed(item, filters) && (!thinned || dealtAs.has(item.id) || thinned.has(item.id));
 }
@@ -729,7 +788,21 @@ function readFilters(): Filters {
     view: SHELVES.includes(view as Shelf) ? (view as Shelf) : "feed",
     mode,
     stack: mode === "anytime" && stack > 1 ? stack : 1,
-    show: show && show in FORMATS ? (show as Format) : "", tags: set("tags"), people: set("people") };
+    show: show && show in FORMATS ? (show as Format) : "", tags: set("tags"), people: set("people"),
+    q: (params.get("q") ?? "").trim() };
+}
+
+function filtersUrl(filters: Filters): string {
+  const params = new URLSearchParams();
+  if (filters.view !== "feed") params.set("view", filters.view);
+  if (filters.mode === "anytime") params.set("feed", "anytime");
+  if (filters.mode === "anytime" && filters.stack > 1) params.set("stack", String(filters.stack));
+  if (filters.show) params.set("show", filters.show);
+  if (filters.tags.size > 0) params.set("tags", [...filters.tags].join(","));
+  if (filters.people.size > 0) params.set("people", [...filters.people].join(","));
+  if (filters.q) params.set("q", filters.q);
+  const query = params.toString().replaceAll("%2C", ",");
+  return query ? `?${query}` : location.pathname;
 }
 
 // A stack number belongs to one feed and one set of filters, so changing either starts again at stack 1.
@@ -742,19 +815,49 @@ function writeFilters(next: Filters): void {
     current.show === next.show &&
     (["tags", "people"] as const).every((key) => sameSet(current[key], next[key]));
   const filters = same ? next : { ...next, stack: 1 };
-  const params = new URLSearchParams();
-  if (filters.view !== "feed") params.set("view", filters.view);
-  if (filters.mode === "anytime") params.set("feed", "anytime");
-  if (filters.mode === "anytime" && filters.stack > 1) params.set("stack", String(filters.stack));
-  if (filters.show) params.set("show", filters.show);
-  if (filters.tags.size > 0) params.set("tags", [...filters.tags].join(","));
-  if (filters.people.size > 0) params.set("people", [...filters.people].join(","));
-  const query = params.toString().replaceAll("%2C", ",");
-  history.pushState(null, "", query ? `?${query}` : location.pathname);
+  history.pushState(null, "", filtersUrl(filters));
   morph(() => {
     render();
     scrollTo({ top: 0 });
   });
+}
+
+// Typing searches as you go. The first letter adds a history step, so Back leaves the search; the
+// rest refine it in place. Each change redraws the list straight away rather than morphing, since a
+// morph per keystroke would only flicker.
+function setQuery(value: string): void {
+  if (!feed) return;
+  const current = readFilters();
+  const q = value.trim();
+  if (q === current.q) return;
+  const url = filtersUrl({ ...current, q });
+  if (!current.q) history.pushState(null, "", url);
+  else history.replaceState(null, "", url);
+  render();
+  scrollTo({ top: 0 });
+}
+
+function clearSearch(): void {
+  clearTimeout(searchTimer);
+  searchInput.value = "";
+  searchClear.hidden = true;
+  const filters = readFilters();
+  if (filters.q) writeFilters({ ...filters, q: "" });
+}
+
+// On a phone the search button turns the bar into the box; on desktop the box is always there.
+function openSearch(): void {
+  controls.classList.add("search-open");
+  controls.classList.remove("tucked");
+  searchInput.focus();
+  searchInput.select();
+}
+
+function renderSearchBox(filters: Filters): void {
+  const typing = document.activeElement === searchInput;
+  if (!typing) searchInput.value = filters.q;
+  searchClear.hidden = !searchInput.value;
+  controls.classList.toggle("search-open", typing || filters.q !== "" || searchInput.value !== "");
 }
 
 // 25698 reads as "26k" and 2512 as "2.5k", so the format tabs stay narrow; the full count is in the title.
@@ -774,7 +877,7 @@ function narrowing(filters: Filters): number {
 
 // Clears what narrows the list; the current list (feed, favourites, archive) and No AI stay as they are.
 function clearFilters(filters: Filters): void {
-  writeFilters({ view: filters.view, mode: filters.mode, stack: 1, show: "", tags: new Set(), people: new Set() });
+  writeFilters({ view: filters.view, mode: filters.mode, stack: 1, show: "", tags: new Set(), people: new Set(), q: filters.q });
 }
 
 function matchesChips(item: FeedItem, filters: Filters): boolean {
@@ -872,9 +975,21 @@ function render(): void {
   rows = rowsFor(filters, chipMatches);
   rendered = 0;
   const person = view === "feed" && filters.people.size === 1 ? [...filters.people][0]! : undefined;
-  list.replaceChildren(...(view !== "feed" ? [shelfHead(view, Object.keys(library[view]).length)] : person ? [personHead(person, chipMatches)] : []));
+  const head = filters.q
+    ? searchHead(filters, rows)
+    : view !== "feed"
+      ? shelfHead(view, Object.keys(library[view]).length)
+      : person
+        ? personHead(person, chipMatches)
+        : undefined;
+  list.replaceChildren(...(head ? [head] : []));
 
   if (needsArchive(filters)) void loadArchive("all");
+  // An empty search is one moment; a "0 posts" head above it would say the same thing twice.
+  if (rows.length === 0 && filters.q) {
+    list.replaceChildren(searchEmpty(filters));
+    return;
+  }
   if (rows.length === 0) {
     const shelfEmpty = view !== "feed" && Object.keys(library[view]).length === 0;
     list.append(
@@ -898,6 +1013,12 @@ function render(): void {
 function rowsFor(filters: Filters, chipMatches: FeedItem[]): Row[] {
   const visible = chipMatches.filter((item) => matchesShow(item, filters));
   dealtAs = new Map();
+  // A search lists every match, newest first, with nothing dealt; it ends once every year is in.
+  if (filters.q) {
+    if (visible.length === 0) return [];
+    const done = filters.view !== "feed" || archiveLoaded();
+    return [...visible.map((item): Row => ({ type: "card", item })), ...(done ? [{ type: "search-end", count: visible.length } as Row] : [])];
+  }
   if (filters.view !== "feed") return visible.map((item): Row => ({ type: "card", item }));
   const now = new Date();
   const fromDeck = todaysDeck()?.filter((item) => inView(item, filters));
@@ -925,9 +1046,27 @@ function rowsFor(filters: Filters, chipMatches: FeedItem[]): Row[] {
 // The feed hides archived posts, excluded topics and paused people, and New thins people seen less;
 // a shelf shows exactly what you saved.
 function viewItems(filters: Filters): FeedItem[] {
-  if (filters.view !== "feed") return shelfItems(library, filters.view, new Map(loadedItems().map((item) => [item.id, item]))).filter((item) => matchesChips(item, filters));
+  const terms = searchTerms(filters.q);
+  if (filters.view !== "feed") {
+    return shelfItems(library, filters.view, new Map(loadedItems().map((item) => [item.id, item]))).filter(
+      (item) => matchesChips(item, filters) && matchesSearch(item, terms),
+    );
+  }
+  if (terms.length > 0) return searchFeed(filters, terms, (item) => !isExcluded(item, hidden));
   const items = feed.items.filter((item) => inFeed(item, filters) && matchesChips(item, filters));
   return filters.mode === "new" ? thinLess(items, seenLess(filters)) : items;
+}
+
+// A search looks through every post this device holds, read ones and paused people included, since
+// it is often for something seen before. It still honours the tag, person and No AI filters.
+function searchFeed(filters: Filters, terms: readonly string[], keep: (item: FeedItem) => boolean): FeedItem[] {
+  const seen = new Set<string>();
+  const items = loadedItems().filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return keep(item) && matchesChips(item, filters) && matchesSearch(item, terms);
+  });
+  return items.sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 }
 
 // Every post this device holds: the chunks loaded so far and today's deck.
@@ -967,7 +1106,7 @@ function appendPage(): void {
   list.append(...page.map(renderRow));
   rendered += page.length;
   const filters = readFilters();
-  if (rendered >= rows.length && filters.view === "feed" && filters.mode === "new" && archiveLoaded()) list.append(renderEnd());
+  if (rendered >= rows.length && filters.view === "feed" && filters.mode === "new" && !filters.q && archiveLoaded()) list.append(renderEnd());
   // A dealt card counts once it is on the page; other days and other devices then deal something else.
   const dealtNow = page.flatMap((row) => (row.type === "card" && dealtAs.has(row.item.id) ? [row.item.id] : []));
   const next = recordDealt(library, dealtNow, dayKey(new Date()));
@@ -978,27 +1117,31 @@ function renderRow(row: Row): HTMLElement {
   if (row.type === "card") return renderCard(row.item);
   if (row.type === "caught-up") return renderCaughtUp(row.hand);
   if (row.type === "dealing") return renderDealing();
+  if (row.type === "search-end") return renderSearchEnd(row.count);
   return renderStackEnd(row);
 }
 
 // On a shelf neither feed is selected, so the row steps aside and gives the list its room.
+// A search lifts New's week and Anytime's stack, so the row steps aside then too.
 function renderModes(filters: Filters): void {
-  modes.classList.toggle("away", filters.view !== "feed");
-  modes.inert = filters.view !== "feed";
+  const away = filters.view !== "feed" || filters.q !== "";
+  modes.classList.toggle("away", away);
+  modes.inert = away;
   for (const button of modeButtons) {
-    button.setAttribute("aria-pressed", String(filters.view === "feed" && button.dataset.mode === filters.mode));
+    button.setAttribute("aria-pressed", String(!away && button.dataset.mode === filters.mode));
   }
-  redeal.hidden = filters.view !== "feed" || filters.mode !== "anytime";
+  redeal.hidden = away || filters.mode !== "anytime";
 }
 
 function renderControls(filters: Filters, chipMatches: FeedItem[]): void {
   controls.hidden = false;
+  renderSearchBox(filters);
   // Every render rebuilds the controls, so keep keyboard focus on the same control across it.
   const focused = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("[data-key]");
   const focusKey = focused && controls.contains(focused) ? focused.dataset.key : undefined;
   const keyboardFocus = !!focused?.matches(":focus-visible");
   // Until every chunk is in, an unfiltered feed counts from the manifest.
-  const totals = filters.view === "feed" && narrowing(filters) === 0 && !archiveLoaded() ? feed.totals : undefined;
+  const totals = filters.view === "feed" && narrowing(filters) === 0 && !filters.q && !archiveLoaded() ? feed.totals : undefined;
   const count = (format: Format | "") => {
     if (!totals) return chipMatches.filter((item) => !format || FORMAT_OF[item.kind] === format).length;
     return format ? totals[format] : totals.watch + totals.read + totals.post;
@@ -1242,8 +1385,36 @@ function byline(item: FeedItem, lead: Node[] = []): HTMLElement {
     ...(format === "watch" || readFilters().show
       ? []
       : [h("span", { className: "format", role: "img", ariaLabel: FORMATS[format].label, title: FORMATS[format].label }, [icon(FORMATS[format].icon, true)])]),
+    ...searchMarks(item),
     dateline(item),
   ]);
+}
+
+// Only a search in the feed shows posts the feed would hide; each says why it would.
+function searchMarks(item: FeedItem): HTMLElement[] {
+  const filters = readFilters();
+  if (!filters.q || filters.view !== "feed") return [];
+  const done = DONE_LABEL[FORMAT_OF[item.kind]];
+  const marks = [
+    ...(isShelved(library, "archive", item.id) ? [done[0]!.toUpperCase() + done.slice(1)] : []),
+    ...(levelOf(library, item.author) === "pause" ? ["Paused"] : []),
+  ];
+  return marks.map((mark) => h("span", { className: "state" }, [mark]));
+}
+
+// The words a search found, marked in a title or summary.
+function marked(text: string): (Node | string)[] {
+  const ranges = matchRanges(text, searchTerms(readFilters().q));
+  if (ranges.length === 0) return [text];
+  const parts: (Node | string)[] = [];
+  let at = 0;
+  for (const [start, end] of ranges) {
+    if (start > at) parts.push(text.slice(at, start));
+    parts.push(h("mark", {}, [text.slice(start, end)]));
+    at = end;
+  }
+  if (at < text.length) parts.push(text.slice(at));
+  return parts;
 }
 
 const monthYear = new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" });
@@ -1342,9 +1513,10 @@ function actions(item: FeedItem, after?: (shelf: Shelf) => void): HTMLElement {
 function shelve(item: FeedItem, shelf: Shelf): void {
   const wasOn = isShelved(library, shelf, item.id);
   saveLibrary(toggleShelf(library, shelf, item, new Date()));
-  const view = readFilters().view;
+  const { view, q } = readFilters();
   const card = list.querySelector<HTMLElement>(`.card[data-id="${CSS.escape(item.id)}"]`);
-  const leaves = (view === "feed" && shelf === "archive") || (view === shelf && wasOn);
+  // A search in the feed keeps read posts, now marked; a search on a shelf still lets one go.
+  const leaves = (view === "feed" && shelf === "archive" && !q) || (view === shelf && wasOn);
   if (card && leaves) collapseOut(card);
   else card?.replaceWith(renderCard(item));
   refreshControls();
@@ -1416,7 +1588,7 @@ function renderWatch(item: FeedItem): HTMLElement {
     thumb,
     h("div", { className: "body" }, [
       h("h2", { className: "title" }, [
-        h("a", { href: item.url, target: "_blank", rel: "noopener", className: "plain", ...(item.originalTitle ? { title: `Original title: ${item.originalTitle}` } : {}) }, [item.title]),
+        h("a", { href: item.url, target: "_blank", rel: "noopener", className: "plain", ...(item.originalTitle ? { title: `Original title: ${item.originalTitle}` } : {}) }, marked(item.title)),
       ]),
       byline(item),
       h("footer", { className: "foot" }, [h("div", {}, tagList(item)), actions(item)]),
@@ -1434,10 +1606,10 @@ function renderRead(item: FeedItem): HTMLElement {
     byline(item, [h("span", { className: "monogram", ariaHidden: "true" }, [initial(item.author)])]),
     h("div", { className: "text" }, [
       h("h2", { className: "title" }, [
-        h("a", { href: item.url, target: "_blank", rel: "noopener", className: "stretch" }, [item.title || "Untitled"]),
+        h("a", { href: item.url, target: "_blank", rel: "noopener", className: "stretch" }, item.title ? marked(item.title) : ["Untitled"]),
       ]),
       ...(mini ? [mini] : []),
-      ...(item.summary ? [h("p", { className: "summary" }, [item.summary])] : []),
+      ...(item.summary ? [h("p", { className: "summary" }, marked(item.summary))] : []),
     ]),
     h("footer", { className: "foot" }, [
       h("div", {}, tagList(item)),
@@ -1453,7 +1625,7 @@ function renderPost(item: FeedItem): HTMLElement {
     : undefined;
   picture?.addEventListener("error", () => picture.remove(), { once: true });
 
-  const link = h("a", { href: item.url, target: "_blank", rel: "noopener", className: "stretch", ariaLabel: `${item.author}: ${text}` }, [text]);
+  const link = h("a", { href: item.url, target: "_blank", rel: "noopener", className: "stretch", ariaLabel: `${item.author}: ${text}` }, marked(text));
   if (NETWORK[item.kind]) {
     link.addEventListener("click", (event) => {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
@@ -1636,6 +1808,68 @@ function renderStackEnd({ stack, count, more }: Extract<Row, { type: "stack-end"
   });
   el.setAttribute("role", "separator");
   el.dataset.row = "stack-end";
+  return el;
+}
+
+// "12 posts for “shader”", then where it looked, so a search inside a filter never reads as everything.
+function searchHead(filters: Filters, rows: Row[]): HTMLElement {
+  const head = h("header", { className: "search-head", ariaLive: "polite" }, []);
+  fillSearchHead(filters, rows, head);
+  return head;
+}
+
+function fillSearchHead(filters: Filters, rows: Row[], head = list.querySelector<HTMLElement>(":scope > .search-head")): void {
+  if (!head || !filters.q) return;
+  const count = rows.filter((row) => row.type === "card").length;
+  const looking = filters.view === "feed" && !archiveLoaded();
+  const where = [
+    ...(filters.view !== "feed" ? [SHELF_COPY[filters.view].title] : []),
+    ...filters.tags,
+    ...filters.people,
+    ...(filters.show ? [FORMATS[filters.show].label] : []),
+  ];
+  const scope = where.length > 0 ? `In ${where.join(", ")}` : "Every post, every year";
+  const note = hidden.size > 0 && filters.view === "feed" ? [`No ${[...hidden].map((id) => EXCLUDE_PRESETS[id].label).join(", ")} on`] : [];
+  head.replaceChildren(
+    h("h2", {}, [
+      h("span", { className: "count" }, [looking && count === 0 ? "Looking" : count.toLocaleString()]),
+      ` ${looking && count === 0 ? "" : count === 1 ? "post " : "posts "}for `,
+      h("q", {}, [filters.q]),
+    ]),
+    h("p", { className: "search-scope" }, [[scope, ...note].join(" · ")]),
+    ...(looking ? [h("p", { className: "search-status" }, ["Searching older years…"])] : []),
+  );
+}
+
+function searchEmpty(filters: Filters): HTMLElement {
+  if (filters.view === "feed" && !archiveLoaded()) {
+    return moment({ mood: "happy", title: "Looking through every year", body: "Older posts are on their way." });
+  }
+  const narrowed = activeFilterCount(filters) > 0 || filters.view !== "feed";
+  // Posts that match but No AI hides, so an empty search can say why it came up empty.
+  const held = filters.view === "feed" && hidden.size > 0 ? searchFeed(filters, searchTerms(filters.q), (item) => isExcluded(item, hidden)).length : 0;
+  return moment({
+    mood: "sleepy",
+    title: `Nothing for “${filters.q}”`,
+    body: narrowed ? "Nothing here matches. Try fewer words, or search everything." : "Try fewer words, or another spelling.",
+    action: narrowed
+      ? ["Search everything", () => writeFilters({ ...filters, view: "feed", show: "", tags: new Set(), people: new Set() })]
+      : ["Clear search", clearSearch],
+    ...(held > 0 ? { fine: `${held} post${held === 1 ? "" : "s"} hidden by No AI.` } : {}),
+  });
+}
+
+function renderSearchEnd(count: number): HTMLElement {
+  const filters = readFilters();
+  const el = moment({
+    mood: "sleepy",
+    title: "That's every match",
+    body: `${count.toLocaleString()} post${count === 1 ? "" : "s"} for “${filters.q}”, newest first.`,
+    action: ["Clear search", clearSearch],
+    quiet: true,
+  });
+  el.setAttribute("role", "separator");
+  el.dataset.row = "search-end";
   return el;
 }
 
