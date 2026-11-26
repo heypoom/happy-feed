@@ -27,6 +27,7 @@ export const EXCLUDE_PRESETS = {
       // GPT, GPT-5, GPT-4o, gpt5 and GPTs.
       /GPT(?:-?\d\w*|s)?/,
       "Claude",
+      "Claudes",
       "OpenAI",
       "Open AI",
       "Anthropic",

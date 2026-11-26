@@ -36,6 +36,7 @@ test("a calmer replacement title does not hide that the original was about AI", 
 test("the AI preset hides posts about AI models and labs by name", () => {
   for (const title of [
     "I asked Claude to turn a PDF into MIDI",
+    "Have separate Claudes read each paper",
     "Harnessing ChatGPT hallucinations",
     "An interview with OpenAI",
     "What Open AI said next",
